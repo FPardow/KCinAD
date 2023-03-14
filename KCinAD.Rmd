@@ -1,0 +1,309 @@
+---
+title: "KCinAD"
+author: "Felicitas Pardow"
+date: "2023-03-14"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+hook_in <- function(x, options) {
+    x <- x[!grepl("^#\\s+", x)]
+    paste0("```r\n",
+          paste0(x, collapse="\n"),
+          "\n```")
+}
+# function that helps remove commented lines with a space (# test) from knitted Rmarkdown and only keeps commented lines without spaces or double-commended lines (#test, ## test)
+
+#ctrl + shift + a makes selected code adhere to the tidyverse format
+
+knitr::knit_hooks$set(source = hook_in)
+
+# library(SingleCellExperiment)
+library(Seurat)
+library(ggplot2)
+library(dplyr)
+library(openxlsx)
+library(clusterProfiler)
+library(org.Hs.eg.db)
+library(ggvenn)
+library(RColorBrewer)
+# library(ggbeeswarm)
+# library(slingshot)
+# library(SummarizedExperiment)
+# library(circlize)
+# library(rmarkdown)
+# library(tradeSeq)
+
+set.seed(1234)
+
+roj_rds <-  readRDS("C:/Users/spare/OneDrive - Radboudumc/Results/KCsinAD/Ward_TP63inAD_compWork/roj_rds_v3_rem1000f.rds")
+setwd("C:/Users/spare/OneDrive - Radboudumc/Results/KCsinAD/FPcomp/KCinAD")
+
+colors = brewer.pal(8, "Set2")
+```
+
+# Setting up the workstream
+
+When running this workflow for the first time, install the following R packages:
+
+```{r installing, eval = F, echo = -(1:2) }
+# # eval = F - does not run code
+# # echo -(1:2) - only shows code from line 3 onward aka hides first 2 lines 
+# 
+# #install Rtools as described here:  https://cran.rstudio.com/bin/windows/Rtools/rtools40.html
+# if (!requireNamespace("BiocManager", quietly = TRUE))
+#     install.packages("BiocManager")
+BiocManager::install("org.Hs.eg.db") #update none
+```
+
+# Descriptive and functional analysis of basal III subtypes
+
+```{r getting accustomed, echo = FALSE}
+roj_rds
+
+roj_rds@meta.data
+table(roj_rds$svm_annotation)
+
+DimPlot(roj_rds) 
+
+basal3_dake@meta.data
+```
+
+I want to increase the UMAP cluster resolution in a way that I can separate KRT15+ and ASS1+ basal III keratinocytes. 
+
+```{r separate basal III subclusters}
+#Isolate basal 3 cluster
+basal3_dake <- subset(roj_rds,ident = "BASAL III")
+
+#Calculate UMAP (10 PCs) using disease integrated data
+DefaultAssay(basal3_dake) = "integrated"
+basal3_dake <- RunPCA(basal3_dake, npcs = 10, verbose = F)
+basal3_dake <- FindNeighbors(basal3_dake, dims = 1:10, verbose = F)
+basal3_dake <- FindClusters(basal3_dake, resolution = 0.2, verbose = F)
+basal3_dake <- RunUMAP(basal3_dake, dims = 1:10, verbose = F)
+
+#Switch to raw data (for visualization)
+DefaultAssay(basal3_dake) = "RNA"
+# basal3_dake <- ScaleData(basal3_dake, verbose = F)
+DimPlot(basal3_dake)
+
+#Assign Annotations
+Idents(basal3_dake) = basal3_dake$seurat_clusters
+basal3_dake = RenameIdents(basal3_dake,
+  "0" = "Basal III KRT15+",
+  '1' = "Basal III ASS1+",
+  '2' = "Basal III KRT15+",
+  '3' = "Basal III KRT15+",
+  '4' = "Basal III ASS1+"
+)
+basal3_dake$b3_subanno = Idents(basal3_dake)
+basal3_dake$b3_subanno_dis = paste0(basal3_dake$b3_subanno, "_", basal3_dake$disease)
+
+as.data.frame(table(basal3_dake$b3_subanno_dis))
+
+#re-integrate back into the rojahn dataset
+Idents(roj_rds, WhichCells(basal3_dake)) = basal3_dake$b3_subanno
+roj_rds$svm_added_anno = Idents(roj_rds)
+DimPlot(roj_rds, cols = colors,  repel = T,  label = T,  label.box = T) + NoLegend() + ggtitle("Rojahn keratincoyte annotations")
+```
+
+Differential expression analysis of different basal III subtypes
+
+```{r DEanalysis basalIII}
+#separating all basal III subclusters based on disease condition
+Idents(basal3_dake) <- basal3_dake$disease
+basal3_dake_hc <- subset(basal3_dake, ident = "HC")
+basal3_dake_ad <- subset(basal3_dake, ident = "AD")
+
+diff_exp_hc <- FindMarkers(basal3_dake_hc, group.by = "b3_subanno", logfc.threshold = 0, ident.1 = "Basal III KRT15+", ident.2 = "Basal III ASS1+")
+diff_exp_ad <- FindMarkers(basal3_dake_ad, group.by = "b3_subanno", logfc.threshold = 0, ident.1 = "Basal III KRT15+", ident.2 = "Basal III ASS1+")
+
+hc <- diff_exp_hc[diff_exp_hc$p_val_adj < 0.05, ]
+hc["gene"] <- rownames(hc)
+ad <- diff_exp_ad[diff_exp_ad$p_val_adj < 0.05, ]
+ad["gene"] <- rownames(ad)
+
+#save DE list
+df_list <- list("DE_healthy" = hc, "DE_AD" = ad)
+write.xlsx(df_list, file = "DE_basalIIIsubtypes.xlsx")
+```
+
+```{r DE overlap healthy + AD}
+ggvenn(list("hc" = hc[hc$avg_log2FC > 0, ]$gene, "ad" = ad[ad$avg_log2FC > 0, ]$gene)) + ggtitle("upregulated in KRT15+ basal III")
+
+ggvenn(list("hc" = hc[hc$avg_log2FC < 0, ]$gene, "ad" = ad[ad$avg_log2FC < 0, ]$gene)) + ggtitle("upregulated in ASS1+ basal III")
+```
+
+Functional analysis of differentially expressed genes. 
+
+```{r GO basal III}
+GO_KRT15_hc = enrichGO(
+  gene = hc[hc$avg_log2FC > 0, ]$gene,
+  OrgDb = org.Hs.eg.db,
+  universe = roj_rds@assays[["RNA"]]@counts@Dimnames[[1]],
+  keyType = 'SYMBOL',
+  ont = "BP",
+  pAdjustMethod = "BH",
+  pvalueCutoff = 0.01,
+  qvalueCutoff  = 0.05
+)
+
+hc[hc$avg_log2FC > 0, ]$gene
+hc[hc$avg_log2FC < 0, ]$gene
+
+GO_ASS1_hc = enrichGO(
+  gene = hc[hc$avg_log2FC < 0, ]$gene,
+  OrgDb = org.Hs.eg.db,
+  universe = roj_rds@assays[["RNA"]]@counts@Dimnames[[1]],
+  keyType = 'SYMBOL',
+  ont = "BP",
+  pAdjustMethod = "BH",
+  pvalueCutoff = 0.01,
+  qvalueCutoff  = 0.05
+)
+
+GO_KRT15_ad = enrichGO(
+  gene = ad[ad$avg_log2FC > 0, ]$gene,
+  OrgDb = org.Hs.eg.db,
+  universe = roj_rds@assays[["RNA"]]@counts@Dimnames[[1]],
+  keyType = 'SYMBOL',
+  ont = "BP",
+  pAdjustMethod = "BH",
+  pvalueCutoff = 0.01,
+  qvalueCutoff  = 0.05
+)
+
+GO_ASS1_ad = enrichGO(
+  gene = ad[ad$avg_log2FC < 0, ]$gene,
+  OrgDb = org.Hs.eg.db,
+  universe = roj_rds@assays[["RNA"]]@counts@Dimnames[[1]],
+  keyType = 'SYMBOL',
+  ont = "BP",
+  pAdjustMethod = "BH",
+  pvalueCutoff = 0.01,
+  qvalueCutoff  = 0.05
+)
+
+write.xlsx(rbind("GO HC KRT15+ basal III", as.data.frame(GO_KRT15_hc), rep("", 29),
+                 "GO HC ASS1+ basal III", as.data.frame(GO_ASS1_hc), rep("", 29),
+                 "GO AD KRT15+ basal III", as.data.frame(GO_KRT15_ad), rep("", 29),
+                 "GO AD ASS1+ basal III", as.data.frame(GO_ASS1_ad), rep("", 29)), file = "GO_basalIIIsubtypes.xlsx")
+```
+
+KEGG pathway enrichment
+
+```{r KEGG basal III}
+#Swap gene symbols to EntrezIDs to do KEGG analysis
+background <-  mapIds(
+  org.Hs.eg.db,
+  keys = roj_rds@assays[["RNA"]]@counts@Dimnames[[1]],
+  column = "ENTREZID",
+  keytype = "SYMBOL",
+  multiVals = "first"
+)
+
+entrez_hc = mapIds(
+  org.Hs.eg.db,
+  keys = hc$gene,
+  column = "ENTREZID",
+  keytype = "SYMBOL",
+  multiVals = "first",
+  species = "Homo sapiens"
+)
+entrez_AD = mapIds(
+  org.Hs.eg.db,
+  keys = ad$gene,
+  column = "ENTREZID",
+  keytype = "SYMBOL",
+  multiVals = "first"
+)
+
+hckegg <- enrichKEGG(gene    = entrez_hc,
+                     universe = background,
+                     # organism = "hsa", 
+                    keyType       = 'kegg',
+                    pvalueCutoff  = 0.05)
+
+adkegg <- enrichKEGG(gene    = entrez_ad,
+                     universe = background,
+                     species = 9606, 
+                     keyType       = 'kegg',
+                     pvalueCutoff  = 0.05)
+```
+
+Progeny
+
+```{r}
+progenyfv_2= function(objectrds, features = 2000, org = "Human",title1,title2,clus = F,colnames = ""
+                      
+){
+  
+  require(progeny)
+  require(pheatmap)
+  require(tidyr)
+  require(tibble)
+  
+  
+  CellsClusters <- data.frame(Cell = names(Idents(objectrds)), 
+                              CellType = as.character(Idents(objectrds)),
+                              stringsAsFactors = FALSE)
+  objectrds <- progeny(objectrds, scale=FALSE, organism=org, top=features, perm=1, 
+                       return_assay = TRUE)
+  ## We can now directly apply Seurat functions in our Progeny scores. 
+  ## For instance, we scale the pathway activity scores. 
+  objectrds <- Seurat::ScaleData(objectrds, assay = "progeny") 
+  
+  ## We transform Progeny scores into a data frame to better handling the results
+  progeny_scores_df <- 
+    as.data.frame(t(GetAssayData(objectrds, slot = "scale.data", 
+                                 assay = "progeny"))) %>%
+    rownames_to_column("Cell") %>%
+    gather(Pathway, Activity, -Cell) 
+  
+  ## We match Progeny scores with the cell clusters.
+  progeny_scores_df <- inner_join(progeny_scores_df, CellsClusters)
+  
+  ## We summarize the Progeny scores by cellpopulation
+  summarized_progeny_scores <- progeny_scores_df %>% 
+    group_by(Pathway, CellType) %>%
+    summarise(avg = mean(Activity), std = sd(Activity))
+  summarized_progeny_scores_df <- summarized_progeny_scores %>%
+    dplyr::select(-std) %>%   
+    spread(Pathway, avg) %>%
+    data.frame(row.names = 1, check.names = FALSE, stringsAsFactors = FALSE)
+  nr = nrow(summarized_progeny_scores_df)/2
+  df1 = summarized_progeny_scores_df[1:nr,]
+  df2 = summarized_progeny_scores_df[(nr+1):c(2*nr),]
+  summarized_progeny_scores_df = df1-df2#relative activity between two variables
+  if (length(colnames) > 1) {
+    rownames(summarized_progeny_scores_df) = colnames
+  }
+  
+  paletteLength = 100
+  myColor = colorRampPalette(c("darkgreen", "white","darkorange"))(paletteLength)
+  
+  progenyBreaks = c(seq(min(summarized_progeny_scores_df), 0, 
+                        length.out=ceiling(paletteLength/2) + 1),
+                    seq(max(summarized_progeny_scores_df)/paletteLength, 
+                        max(summarized_progeny_scores_df), 
+                        length.out=floor(paletteLength/2)))
+  x1 = pheatmap(t(summarized_progeny_scores_df[,-1]),fontsize=14, 
+                fontsize_row = 10, 
+                color=myColor, breaks = progenyBreaks, 
+                main = paste(title1,"Pathway Activity Relative to Healthy"), angle_col = 45,
+                treeheight_col = 0,  border_color = NA,cluster_cols = clus)
+  return(x1)
+}
+
+#set correct identity and run progeny 
+Idents(roj_rds) = paste0(roj_rds$disease,"_",roj_rds$svm_added_anno)
+progenyfv_2(roj_rds,title1 = "AD",features = 2000,colnames = c("Bas Ass1+","Bas Krt15+","BASAL I","BASAL II","BASAL IV","Spinosum","Granulosum")
+)
+```
+
+
+
+
+
