@@ -20,7 +20,7 @@ hook_in <- function(x, options) {
 
 knitr::knit_hooks$set(source = hook_in)
 
-# library(SingleCellExperiment)
+library(SingleCellExperiment)
 library(Seurat)
 library(ggplot2)
 library(dplyr)
@@ -42,6 +42,8 @@ roj_rds <-  readRDS("C:/Users/spare/OneDrive - Radboudumc/Results/KCsinAD/Ward_T
 setwd("C:/Users/spare/OneDrive - Radboudumc/Results/KCsinAD/FPcomp/KCinAD")
 
 colors = brewer.pal(8, "Set2")
+diffOrder <- c("Basal III KRT15+", "Basal III ASS1+", "BASAL II", "BASAL I", "BASAL IV", "Spinosum", "Stratum Granulosum")
+
 ```
 
 # Setting up the workstream
@@ -53,9 +55,20 @@ When running this workflow for the first time, install the following R packages:
 # # echo -(1:2) - only shows code from line 3 onward aka hides first 2 lines 
 # 
 # #install Rtools as described here:  https://cran.rstudio.com/bin/windows/Rtools/rtools40.html
-# if (!requireNamespace("BiocManager", quietly = TRUE))
-#     install.packages("BiocManager")
-BiocManager::install("org.Hs.eg.db") #update none
+
+# if (!requireNamespace("BiocManager", quietly = TRUE)) #checks if package BiocManager is not installed
+#     install.packages("BiocManager") #if not: installs it
+
+#biocmanager gives access to the Bioconductor Project Package Repository
+# BiocManager::install("Seurat") 
+# BiocManager::install("tidyverse")
+# BiocManager::install("SingleCellExperiment") #update none
+# BiocManager::install("clusterProfiler")
+# BiocManager::install("openxlsx")
+# BiocManager::install("org.Hs.eg.db")
+# BiocManager::install("RColorBrewer")
+# BiocManager::install("slingshot")
+# BiocManager::install("ggvenn")
 ```
 
 # Descriptive and functional analysis of basal III subtypes
@@ -106,7 +119,33 @@ as.data.frame(table(basal3_dake$b3_subanno_dis))
 #re-integrate back into the rojahn dataset
 Idents(roj_rds, WhichCells(basal3_dake)) = basal3_dake$b3_subanno
 roj_rds$svm_added_anno = Idents(roj_rds)
+
+roj_rds@meta.data[["svm_added_anno"]] <- factor(roj_rds@meta.data[["svm_added_anno"]], levels = c("Basal III KRT15+", "Basal III ASS1+", "BASAL I", "BASAL II", "BASAL IV", "Spinosum", "Stratum Granulosum")) #order cell identities
+roj_rds@meta.data[["disease"]] <- factor(roj_rds@meta.data[["disease"]], levels = c("HC", "AD")) #order cell identities
+
 DimPlot(roj_rds, cols = colors,  repel = T,  label = T,  label.box = T) + NoLegend() + ggtitle("Rojahn keratincoyte annotations")
+DimPlot(roj_rds[, roj_rds$disease == "HC"], cols = colors,  repel = T,  label = T,  label.box = T) + NoLegend() + ggtitle("Rojahn HC")
+DimPlot(roj_rds[, roj_rds$disease == "AD"], cols = colors,  repel = T,  label = T,  label.box = T) + NoLegend() + ggtitle("Rojahn AD")
+```
+
+Visualizations
+
+```{r Vis}
+#visualizing epidermal layer markers in healthy KCs
+VlnPlot(roj_rds[, roj_rds$disease == "HC"], group.by = "svm_added_anno" , features = c("KRT5", "KRT14", "KRT1", "KRT10"), stack = T, split.by = "disease", flip = T)
+#epidermal stem cell markers
+SC_markers <- c("ITGB1", "ITGA6", "CD71", "DSG3", "DLL1", "MCSP", "LRIG1", "FRMD4A", "CD46", "HDAC1", "AXIN2")
+VlnPlot(roj_rds[, roj_rds$disease == "HC"], group.by = "svm_added_anno" , features = SC_markers, stack = T, split.by = "disease", flip = T)
+#how do they change in disease?
+VlnPlot(roj_rds, group.by = "svm_added_anno" , features = c("KRT5", "KRT14", "KRT1", "KRT10"), stack = T, split.by = "disease", flip = T)
+VlnPlot(roj_rds, group.by = "svm_added_anno" , features = SC_markers, stack = T, split.by = "disease", flip = T)
+
+#visualization KRT15/ASS1 HC vs AD
+VlnPlot(roj_rds[, roj_rds$disease == "HC"], group.by = "svm_added_anno" , features = c("KRT15", "ASS1"), stack = T, split.by = "disease", flip = T)
+VlnPlot(roj_rds, group.by = "svm_added_anno" , features = c("KRT15", "ASS1"), stack = T, split.by = "disease", flip = T)
+
+#TP63 in HC vs AD
+VlnPlot(roj_rds, group.by = "svm_added_anno" , features = c("TP63"), split.by = "disease", flip = T)
 ```
 
 Differential expression analysis of different basal III subtypes
@@ -117,18 +156,24 @@ Idents(basal3_dake) <- basal3_dake$disease
 basal3_dake_hc <- subset(basal3_dake, ident = "HC")
 basal3_dake_ad <- subset(basal3_dake, ident = "AD")
 
-diff_exp_hc <- FindMarkers(basal3_dake_hc, group.by = "b3_subanno", logfc.threshold = 0, ident.1 = "Basal III KRT15+", ident.2 = "Basal III ASS1+")
+diff_exp_hc <- FindMarkers(basal3_dake_hc, group.by = "b3_subanno", logfc.threshold = 0, ident.1 = "Basal III KRT15+", ident.2 = "Basal III ASS1+") #this is NOT DIFF expression!!!
 diff_exp_ad <- FindMarkers(basal3_dake_ad, group.by = "b3_subanno", logfc.threshold = 0, ident.1 = "Basal III KRT15+", ident.2 = "Basal III ASS1+")
 
-hc <- diff_exp_hc[diff_exp_hc$p_val_adj < 0.05, ]
+hc <- diff_exp_hc[diff_exp_hc$p_val_adj < 0.05, ] # this is DIFF expression!!!
 hc["gene"] <- rownames(hc)
 ad <- diff_exp_ad[diff_exp_ad$p_val_adj < 0.05, ]
 ad["gene"] <- rownames(ad)
 
 #save DE list
 df_list <- list("DE_healthy" = hc, "DE_AD" = ad)
-write.xlsx(df_list, file = "DE_basalIIIsubtypes.xlsx")
+# write.xlsx(df_list, file = "DE_basalIIIsubtypes.xlsx")
 ```
+
+```{r DEanalysis global}
+diffex <- FindMarkers(roj_rds, group.by = "svm_added_anno", ident.1 = "Basal III KRT15+")
+
+```
+
 
 ```{r DE overlap healthy + AD}
 ggvenn(list("hc" = hc[hc$avg_log2FC > 0, ]$gene, "ad" = ad[ad$avg_log2FC > 0, ]$gene)) + ggtitle("upregulated in KRT15+ basal III")
@@ -136,7 +181,7 @@ ggvenn(list("hc" = hc[hc$avg_log2FC > 0, ]$gene, "ad" = ad[ad$avg_log2FC > 0, ]$
 ggvenn(list("hc" = hc[hc$avg_log2FC < 0, ]$gene, "ad" = ad[ad$avg_log2FC < 0, ]$gene)) + ggtitle("upregulated in ASS1+ basal III")
 ```
 
-Functional analysis of differentially expressed genes. 
+Functional analysis of differentially expressed genes
 
 ```{r GO basal III}
 GO_KRT15_hc = enrichGO(
@@ -151,7 +196,7 @@ GO_KRT15_hc = enrichGO(
 )
 
 hc[hc$avg_log2FC > 0, ]$gene
-hc[hc$avg_log2FC < 0, ]$gene
+# hc[hc$avg_log2FC < 0, ]$gene
 
 GO_ASS1_hc = enrichGO(
   gene = hc[hc$avg_log2FC < 0, ]$gene,
@@ -163,6 +208,11 @@ GO_ASS1_hc = enrichGO(
   pvalueCutoff = 0.01,
   qvalueCutoff  = 0.05
 )
+
+dogo_hc = enrichGO(gene = hc[hc$avg_log2FC<0,]$gene,OrgDb = org.Hs.eg.db, 
+                   universe= roj_rds@assays[["RNA"]]@counts@Dimnames[[1]], 
+                  keyType = 'SYMBOL',ont = "BP",pAdjustMethod = "BH",pvalueCutoff = 0.01, qvalueCutoff  = 0.05)
+GO_ASS1_hc
 
 GO_KRT15_ad = enrichGO(
   gene = ad[ad$avg_log2FC > 0, ]$gene,
@@ -186,10 +236,12 @@ GO_ASS1_ad = enrichGO(
   qvalueCutoff  = 0.05
 )
 
-write.xlsx(rbind("GO HC KRT15+ basal III", as.data.frame(GO_KRT15_hc), rep("", 29),
-                 "GO HC ASS1+ basal III", as.data.frame(GO_ASS1_hc), rep("", 29),
-                 "GO AD KRT15+ basal III", as.data.frame(GO_KRT15_ad), rep("", 29),
-                 "GO AD ASS1+ basal III", as.data.frame(GO_ASS1_ad), rep("", 29)), file = "GO_basalIIIsubtypes.xlsx")
+
+
+# write.xlsx(rbind("GO HC KRT15+ basal III", as.data.frame(GO_KRT15_hc), rep("", 29),
+#                  "GO HC ASS1+ basal III", as.data.frame(GO_ASS1_hc), rep("", 29),
+#                  "GO AD KRT15+ basal III", as.data.frame(GO_KRT15_ad), rep("", 29),
+#                  "GO AD ASS1+ basal III", as.data.frame(GO_ASS1_ad), rep("", 29)), file = "GO_basalIIIsubtypes.xlsx")
 ```
 
 KEGG pathway enrichment
@@ -303,7 +355,52 @@ progenyfv_2(roj_rds,title1 = "AD",features = 2000,colnames = c("Bas Ass1+","Bas 
 )
 ```
 
+Checking TP63 target enrichment in KRT15 / ASS1 cells 
+
+```{r TP63targets}
+#load targets p63 ChIP-seq
+p63targetsall <- readxl::read_excel("embr0016-0863-sd13.xlsx", sheet = "ST12A") #open sup 13, table12 of Kouwenhoven EN, Oti M, Niehues H, van Heeringen SJ, Schalkwijk J, Stunnenberg HG, van Bokhoven H, Zhou H. Transcription factor p63 bookmarks and regulates dynamic enhancers during epidermal differentiation. EMBO Rep. 2015 Jul;16(7):863-78. doi: 10.15252/embr.201439941. Epub 2015 Jun 1. PMID: 26034101; PMCID: PMC4515125.
+p63targetsall <- p63targetsall$...10 #select gene list
+p63targetsall <- unique(p63targetsall[3:41598]) #Trim header to remove non gene values
+
+#evaluate enrichment in DE genes (DE between KRT15/ASS1 in healthy or AD resp)
+krt15_hc_DE <- rownames(diff_exp_hc[diff_exp_hc$avg_log2FC > 0 & diff_exp_hc$p_val_adj < 0.05, ])
+ass1_hc_DE <- rownames(diff_exp_hc[diff_exp_hc$avg_log2FC < 0 & diff_exp_hc$p_val_adj < 0.05, ])
+krt15_ad_DE <- rownames(diff_exp_ad[diff_exp_ad$avg_log2FC > 0 & diff_exp_ad$p_val_adj < 0.05, ])
+ass1_ad_DE <- rownames(diff_exp_ad[diff_exp_ad$avg_log2FC < 0 & diff_exp_ad$p_val_adj < 0.05, ])
+
+table(p63targetsall %in% krt15_hc_DE)
+table(p63targetsall %in% ass1_hc_DE)
+table(p63targetsall %in% krt15_ad_DE)
+table(p63targetsall %in% ass1_ad_DE)
+# p63targetsall[p63targetsall %in% krt15_hc_DE == T]
+
+#evaluate enrichment in all KRT15/ASS1 marker genes (for HC or AD KRT15/ASS1 population resp)
+krt15_hc <- rownames(diff_exp_hc[diff_exp_hc$avg_log2FC > 0, ])
+ass1_hc <- rownames(diff_exp_hc[diff_exp_hc$avg_log2FC < 0, ])
+krt15_ad <- rownames(diff_exp_ad[diff_exp_ad$avg_log2FC > 0, ])
+ass1_ad <- rownames(diff_exp_ad[diff_exp_ad$avg_log2FC < 0, ])
+
+table(p63targetsall %in% krt15_hc)
+table(p63targetsall %in% ass1_hc)
+table(p63targetsall %in% krt15_ad)
+table(p63targetsall %in% ass1_ad)
+as.data.frame(table(basal3_dake$b3_subanno_dis)) #cell numbers krt15/ass1 subpopulations
+
+#background
+table(p63targetsall %in% roj_rds@assays[["RNA"]]@counts@Dimnames[[1]])
+length(roj_rds@assays[["RNA"]]@counts@Dimnames[[1]])
+
+
+```
 
 
 
+# Save
+
+
+```{r save}
+saveRDS(roj_rds, "roj_rds.rds")
+saveRDS(basal3_dake, "basal3_dake.rds")
+```
 
