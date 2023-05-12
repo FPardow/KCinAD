@@ -69,6 +69,7 @@ When running this workflow for the first time, install the following R packages:
 # BiocManager::install("RColorBrewer")
 # BiocManager::install("slingshot")
 # BiocManager::install("ggvenn")
+# BiocManager::install("limma")
 ```
 
 # Descriptive and functional analysis of basal III subtypes
@@ -148,6 +149,12 @@ VlnPlot(roj_rds, group.by = "svm_added_anno" , features = c("KRT15", "ASS1"), st
 VlnPlot(roj_rds, group.by = "svm_added_anno" , features = c("TP63"), split.by = "disease", flip = T)
 ```
 
+```{r vis TRx2 and CARD14}
+FeaturePlot(roj_rds, features = c('CARD14', 'TREX2')) # assay = 'RNA'
+VlnPlot(roj_rds, group.by = "svm_added_anno" , features = c('CARD14', 'TREX2'), split.by = "disease", flip = T)
+```
+
+
 Differential expression analysis of different basal III subtypes
 
 ```{r DEanalysis basalIII}
@@ -171,7 +178,10 @@ df_list <- list("DE_healthy" = hc, "DE_AD" = ad)
 
 ```{r DEanalysis global}
 diffex <- FindMarkers(roj_rds, group.by = "svm_added_anno", ident.1 = "Basal III KRT15+")
-
+diffex <- FindMarkers(roj_rds, group.by = "svm_added_anno", ident.1 = "Basal III ASS1+")
+diffex <- FindMarkers(roj_rds, group.by = "svm_added_anno", ident.1 = "Basal I")
+diffex <- FindMarkers(roj_rds, group.by = "svm_added_anno", ident.1 = "Basal II")
+diffex <- FindMarkers(roj_rds, group.by = "svm_added_anno", ident.1 = "Basal IV")
 ```
 
 
@@ -288,9 +298,7 @@ adkegg <- enrichKEGG(gene    = entrez_ad,
 Progeny
 
 ```{r}
-progenyfv_2= function(objectrds, features = 2000, org = "Human",title1,title2,clus = F,colnames = ""
-                      
-){
+progenyfv_2= function(objectrds, features = 2000, org = "Human",title1,title2,clus = F,colnames = ""){
   
   require(progeny)
   require(pheatmap)
@@ -394,10 +402,96 @@ length(roj_rds@assays[["RNA"]]@counts@Dimnames[[1]])
 
 ```
 
+Evaluating expression of AHR signature genes in healthy / change in AD?
+
+```{r AHRsig}
+AHRsig <- readxl::read_excel("C:/Users/spare/OneDrive - Radboudumc/Results/Pan-tissue AHR signature_Opitz(2020).xlsx") #open table S2 of Sadik et. al 2020
+AHRsig <- AHRsig[-c(1:2), ]
+colnames(AHRsig) <- c("gene", "entrezID")
+AHRsig <- AHRsig$gene
+
+ggvenn::ggvenn(list('AHRsig' = AHRsig, 'HC_KRT15' = names(HC_KRT15)))
+ggvenn::ggvenn(list('AHRsig' = AHRsig, 'HC_ASS1' = names(HC_ASS1)))
+ggvenn::ggvenn(list('AHRsig' = AHRsig, 'AD_KRT15' = names(ad_KRT15)))
+ggvenn::ggvenn(list('AHRsig' = AHRsig, 'AD_ASS1' = names(ad_ASS1)))
+
+AHRsig[AHRsig %in% names(HC_KRT15)]
+AHRsig[AHRsig %in% names(HC_ASS1)]
+AHRsig[AHRsig %in% names(ad_KRT15)]
+AHRsig[AHRsig %in% names(ad_ASS1)]
+
+GSE_targets <- data.frame("term" = c("AHRsignature"),
+                          "gene" = AHRsig)
+
+#make ranked gene lists
+HC_KRT15 <- hc %>% filter(avg_log2FC > 0) %>% dplyr::pull(avg_log2FC)
+names(HC_KRT15) <- hc %>% filter(avg_log2FC > 0) %>% dplyr::pull(gene)
+HC_KRT15 <- sort(HC_KRT15, decreasing = TRUE)
+
+HC_ASS1 <- hc %>% filter(avg_log2FC < 0) %>% dplyr::pull(avg_log2FC)
+names(HC_ASS1) <- hc %>% filter(avg_log2FC < 0) %>% dplyr::pull(gene)
+HC_ASS1 <- sort(HC_ASS1, decreasing = TRUE)
+
+ad_KRT15 <- ad %>% filter(avg_log2FC > 0) %>% dplyr::pull(avg_log2FC)
+names(ad_KRT15) <- ad %>% filter(avg_log2FC > 0) %>% dplyr::pull(gene)
+ad_KRT15 <- sort(ad_KRT15, decreasing = TRUE)
+
+ad_ASS1 <- ad %>% filter(avg_log2FC < 0) %>% dplyr::pull(avg_log2FC)
+names(ad_ASS1) <- ad %>% filter(avg_log2FC < 0) %>% dplyr::pull(gene)
+ad_ASS1 <- sort(ad_ASS1, decreasing = TRUE)
+
+#####Run GSEA on the comparison####
+
+GSEA_hcKRT15 <- GSEA(
+  HC_KRT15,
+  TERM2GENE = GSE_targets,
+  pvalueCutoff = 1,
+  eps = 0,
+  maxGSSize = 10000,
+  minGSSize = 1
+  )
+
+GSEA_hcASS1 <- GSEA(
+  HC_ASS1,
+  TERM2GENE = GSE_targets,
+  pvalueCutoff = 1,
+  eps = 0,
+  maxGSSize = 10000,
+  minGSSize = 1
+  )
+
+GSEA_adKRT15 <- GSEA(
+  ad_KRT15,
+  TERM2GENE = GSE_targets,
+  pvalueCutoff = 1,
+  eps = 0,
+  maxGSSize = 10000,
+  minGSSize = 1
+  )
+
+GSEA_adASS1 <- GSEA(
+  ad_ASS1,
+  TERM2GENE = GSE_targets,
+  pvalueCutoff = 1,
+  eps = 0,
+  maxGSSize = 10000,
+  minGSSize = 1
+  )
+
+gseaplot(GSEA_hcKRT15, by = "all", title = GSEA_hcKRT15$Description[1], geneSetID = 1)
+gseaplot(GSEA_hcASS1, by = "all", title = GSEA_hcASS1$Description[1], geneSetID = 1)
+gseaplot(GSEA_adKRT15, by = "all", title = GSEA_adKRT15$Description[1], geneSetID = 1)
+gseaplot(GSEA_adASS1, by = "all", title = GSEA_adASS1$Description[1], geneSetID = 1)
+
+GSEA_hcKRT15_df <- as.data.frame(GSEA_hcKRT15)
+GSEA_hcASS1_df <- as.data.frame(GSEA_hcASS1)
+GSEA_adKRT15_df <- as.data.frame(GSEA_adKRT15)
+GSEA_adASS1_df <- as.data.frame(GSEA_adASS1)
+
+```
 
 
 # Save
-
 
 ```{r save}
 saveRDS(roj_rds, "roj_rds.rds")
