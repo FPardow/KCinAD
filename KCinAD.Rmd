@@ -29,22 +29,49 @@ library(clusterProfiler)
 library(org.Hs.eg.db)
 library(ggvenn)
 library(RColorBrewer)
-# library(ggbeeswarm)
-# library(slingshot)
-# library(SummarizedExperiment)
-# library(circlize)
-# library(rmarkdown)
+library(progeny)
+library(pheatmap)
+
+library(ggbeeswarm)
+library(slingshot)
+library(SummarizedExperiment)
+library(circlize)
+library(rmarkdown)
 # library(tradeSeq)
+library(decoupleR)
+library(OmnipathR)
 
 set.seed(1234)
 
-roj_rds <-  readRDS("C:/Users/spare/OneDrive - Radboudumc/Results/KCsinAD/Ward_TP63inAD_compWork/roj_rds_v3_rem1000f.rds")
+# quick load
 setwd("C:/Users/spare/OneDrive - Radboudumc/Results/KCsinAD/FPcomp/KCinAD")
+roj_rds <-  readRDS("roj_rds.rds")
+# basal3_dake <-  readRDS("basal3_dake.rds")
 
-colors = brewer.pal(8, "Set2")
-diffOrder <- c("Basal III KRT15+", "Basal III ASS1+", "BASAL II", "BASAL I", "BASAL IV", "Spinosum", "Stratum Granulosum")
-
+# Idents(roj_rds) <- roj_rds$svm_added_anno
+# 
+# roj_rds$svm_added_anno <- RenameIdents(roj_rds$svm_added_anno,
+#              "Basal III KRT15+" = "basal III KRT15+",
+#              "Basal III ASS1+" = "basal III ASS1+",
+#              "BASAL I" = "basal I",
+#              "BASAL II" = "basal II",
+#              "BASAL IV" = "basal IV",
+#              "Spinosum" = "stratum spinosum",
+#              "Stratum Granulosum" = "stratum granulosum")
 ```
+
+# shortcut figures 
+
+```{r figures}
+colors <- brewer.pal(8, "Set2")
+
+DimPlot(roj_rds, cols = colors,  repel = T,  label = T,  label.box = T) + NoLegend()
+DimPlot(roj_rds, group.by = "disease")
+FeaturePlot(roj_rds[, roj_rds$disease == "HC"], features = c('KRT5', 'KRT14', "KRT1", "KRT10","DSC1", "FLG", "IVL", "KRT16", "KRT6"))
+FeaturePlot(roj_rds[, roj_rds$disease == "AD"], features = c('KRT5', 'KRT14', "KRT1", "KRT10","DSC1", "FLG", "IVL", "KRT16", "KRT6"))
+FeaturePlot(roj_rds, features = c('KRT5', 'KRT14', "KRT1", "KRT10","DSC1", "FLG", "IVL", "KRT16", "KRT6"))
+```
+
 
 # Setting up the workstream
 
@@ -70,9 +97,14 @@ When running this workflow for the first time, install the following R packages:
 # BiocManager::install("slingshot")
 # BiocManager::install("ggvenn")
 # BiocManager::install("limma")
+# BiocManager::install("progeny")
+# BiocManager::install("pheatmap")
+# BiocManager::install("decoupleR")
+# BiocManager::install("OmnipathR")
+
 ```
 
-# Descriptive and functional analysis of basal III subtypes
+# Descriptive analysis of basal III subtypes
 
 ```{r getting accustomed, echo = FALSE}
 roj_rds
@@ -83,11 +115,19 @@ table(roj_rds$svm_annotation)
 DimPlot(roj_rds) 
 
 basal3_dake@meta.data
+
+objectrds@assays$progeny@meta.features
+
+table(roj_rds$disease)
+
+roj_rds[, roj_rds$disease == "HC"]
 ```
 
 I want to increase the UMAP cluster resolution in a way that I can separate KRT15+ and ASS1+ basal III keratinocytes. 
 
 ```{r separate basal III subclusters}
+roj_rds <-  readRDS("C:/Users/spare/OneDrive - Radboudumc/Results/KCsinAD/Ward_TP63inAD_compWork/roj_rds_v3_rem1000f.rds")
+
 #Isolate basal 3 cluster
 basal3_dake <- subset(roj_rds,ident = "BASAL III")
 
@@ -119,21 +159,34 @@ as.data.frame(table(basal3_dake$b3_subanno_dis))
 
 #re-integrate back into the rojahn dataset
 Idents(roj_rds, WhichCells(basal3_dake)) = basal3_dake$b3_subanno
-roj_rds$svm_added_anno = Idents(roj_rds)
+roj_rds$svm_added_anno <-  Idents(roj_rds)
 
-roj_rds@meta.data[["svm_added_anno"]] <- factor(roj_rds@meta.data[["svm_added_anno"]], levels = c("Basal III KRT15+", "Basal III ASS1+", "BASAL I", "BASAL II", "BASAL IV", "Spinosum", "Stratum Granulosum")) #order cell identities
+roj_rds <- RenameIdents(roj_rds,
+             "Basal III KRT15+" = "basal III KRT15+",
+             "Basal III ASS1+" = "basal III ASS1+",
+             "BASAL I" = "basal I",
+             "BASAL II" = "basal II",
+             "BASAL IV" = "basal IV",
+             "Spinosum" = "stratum spinosum",
+             "Stratum Granulosum" = "stratum granulosum")
+
+roj_rds@meta.data[["svm_added_anno"]] <- factor(roj_rds@meta.data[["svm_added_anno"]], levels = c("basal III KRT15+", "basal III ASS1+", "basal II", "basal I", "basal IV", "stratum spinosum", "stratum granulosum")) #order cell identities
+
 roj_rds@meta.data[["disease"]] <- factor(roj_rds@meta.data[["disease"]], levels = c("HC", "AD")) #order cell identities
+
+colors <- brewer.pal(8, "Set2")
 
 DimPlot(roj_rds, cols = colors,  repel = T,  label = T,  label.box = T) + NoLegend() + ggtitle("Rojahn keratincoyte annotations")
 DimPlot(roj_rds[, roj_rds$disease == "HC"], cols = colors,  repel = T,  label = T,  label.box = T) + NoLegend() + ggtitle("Rojahn HC")
 DimPlot(roj_rds[, roj_rds$disease == "AD"], cols = colors,  repel = T,  label = T,  label.box = T) + NoLegend() + ggtitle("Rojahn AD")
+
 ```
 
 Visualizations
 
 ```{r Vis}
 #visualizing epidermal layer markers in healthy KCs
-VlnPlot(roj_rds[, roj_rds$disease == "HC"], group.by = "svm_added_anno" , features = c("KRT5", "KRT14", "KRT1", "KRT10"), stack = T, split.by = "disease", flip = T)
+VlnPlot(roj_rds[, roj_rds$disease == "HC"], group.by = "svm_added_anno" , features = c("IRG1", "KRT14", "KRT1", "KRT10"), stack = T, split.by = "disease", flip = T)
 #epidermal stem cell markers
 SC_markers <- c("ITGB1", "ITGA6", "CD71", "DSG3", "DLL1", "MCSP", "LRIG1", "FRMD4A", "CD46", "HDAC1", "AXIN2")
 VlnPlot(roj_rds[, roj_rds$disease == "HC"], group.by = "svm_added_anno" , features = SC_markers, stack = T, split.by = "disease", flip = T)
@@ -147,6 +200,11 @@ VlnPlot(roj_rds, group.by = "svm_added_anno" , features = c("KRT15", "ASS1"), st
 
 #TP63 in HC vs AD
 VlnPlot(roj_rds, group.by = "svm_added_anno" , features = c("TP63"), split.by = "disease", flip = T)
+
+# table(roj_rds$sample)
+
+DimPlot(roj_rds[, roj_rds$disease == "HC"], group.by = "sample")
+FeaturePlot(roj_rds[, roj_rds$disease == "HC"], features = c('KRT5', 'KRT14', "KRT1", "KRT10", "MKI67", "MCM3", "POSTN", "TIMP1", "CCL2")) # assay = 'RNA'
 ```
 
 ```{r vis TRx2 and CARD14}
@@ -154,8 +212,137 @@ FeaturePlot(roj_rds, features = c('CARD14', 'TREX2')) # assay = 'RNA'
 VlnPlot(roj_rds, group.by = "svm_added_anno" , features = c('CARD14', 'TREX2'), split.by = "disease", flip = T)
 ```
 
+```{r vis ACOD1}
+#Visualization 
+VlnPlot(roj_rds[, roj_rds$disease == "HC"], group.by = "svm_added_anno" , features = c("ACOD1", "KRT15", "ASS1"), stack = T, split.by = "disease", flip = T)
+VlnPlot(roj_rds[, roj_rds$disease == "AD"], group.by = "svm_added_anno" , features = c("ACOD1"), stack = T, split.by = "disease", flip = T)
 
-Differential expression analysis of different basal III subtypes
+ggcells(x = roj_rds,
+        mapping = aes(x = descriptive_name, y = ACOD1),
+        exprs_values = "logcounts") + 
+  geom_violin(fill = 'coral2') + theme_bw() + ggtitle("log transformed ACOD1 expression") +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1))
+```
+
+```{r vis SPHK2 and target genes}
+genes <- c("AHR", "SPHK2", "S1P", "A4GALT", "ASAH2", "CERS1", "CERS6", "SGPL1", "SMPDL3B", "SGMS1", "SPHK2", "SPTLC1", "CYP1A1", "SPTLC2", "CYP1A1", "CYP1B1")
+VlnPlot(roj_rds, group.by = "svm_added_anno" , features = genes, stack = T, split.by = "disease", split.plot = TRUE, flip = T)
+
+#show overlap of both gene expression in UMAP, co-expression
+FeaturePlot(roj_rds[, roj_rds$disease == "AD"], features = c("AHR", "SPTLC1", "SGMS1", "SPTLC2")) # assay = 'RNA'
+FeaturePlot(roj_rds[, roj_rds$disease == "AD"], features = c("AHR", "SPTLC2"), cols = c("red", "blue"), blend = T)
+FeaturePlot(roj_rds[, roj_rds$disease == "AD"], features = c("SPTLC1", "SGMS1"), cols = c("red", "blue"), blend = T)
+FeaturePlot(roj_rds[, roj_rds$disease == "AD"], features = c("AHR", "CYP1B1"), cols = c("red", "green"), blend = T)
+```
+
+```{r literature check ATF3 in healthy}
+genes <- c("ATF3", "DUSP1", "RND3", "GRHL3", "ZNF750", "OVOL1", "PRDM1", "AFF1", "HEXIM1", "MKI67", "FOXM1","AURKB") 
+VlnPlot(roj_rds, group.by = "svm_added_anno" , features = c("ATF3", "DUSP1", "RND3", "GRHL3", "ZNF750", "OVOL1", "PRDM1", "AFF1", "HEXIM1", "CDK9", "MKI67", "FOXM1","AURKB"), stack = T,  flip = T, split.by = "disease", split.plot = TRUE,) #split.by = "disease", split.plot = TRUE,
+
+FeaturePlot(roj_rds[, roj_rds$disease == "HC"], features = c("ATF3", "DUSP1", "RND3")) # assay = 'RNA'
+VlnPlot(roj_rds[, roj_rds$disease == "HC"], group.by = "svm_added_anno" , features = c("ATF3", "DUSP1", "RND3"), stack = T,  flip = T) 
+
+#gene marker lists
+Idents(roj_rds) <- roj_rds$disease
+roj_rds_hc <- subset(roj_rds, ident = "HC")
+
+diff_exp_hc_krt15 <- FindMarkers(roj_rds_hc, group.by = "svm_added_anno", ident.1 = "Basal III KRT15+")
+diff_exp_hc_ass1 <- FindMarkers(roj_rds_hc, group.by = "svm_added_anno", ident.1 = "Basal III ASS1+")
+diff_exp_hc_basalI <- FindMarkers(roj_rds_hc, group.by = "svm_added_anno", ident.1 = "BASAL I")
+diff_exp_hc_basalII <- FindMarkers(roj_rds_hc, group.by = "svm_added_anno", ident.1 = "BASAL II")
+diff_exp_hc_basalIV <- FindMarkers(roj_rds_hc, group.by = "svm_added_anno", ident.1 = "BASAL IV")
+diff_exp_hc_gran <- FindMarkers(roj_rds_hc, group.by = "svm_added_anno", ident.1 = "Stratum Granulosum")
+
+diff_exp_hc_krt15 <- diff_exp_hc_krt15[diff_exp_hc_krt15$p_val_adj < 0.05, ] # this is DIFF expression!!!
+# diff_exp_hc_krt15["gene"] <- rownames(diff_exp_hc_krt15)
+diff_exp_hc_ass1 <- diff_exp_hc_ass1[diff_exp_hc_ass1$p_val_adj < 0.05, ] # this is DIFF expression!!!
+diff_exp_hc_basalI <- diff_exp_hc_basalI[diff_exp_hc_basalI$p_val_adj < 0.05, ]
+diff_exp_hc_basalII <- diff_exp_hc_basalII[diff_exp_hc_basalII$p_val_adj < 0.05, ]
+diff_exp_hc_basalIV <- diff_exp_hc_basalIV[diff_exp_hc_basalIV$p_val_adj < 0.05, ]
+diff_exp_hc_gran <- diff_exp_hc_gran[diff_exp_hc_gran$p_val_adj < 0.05, ]
+
+#enrichment rapid-response genes
+RRG <- readxl::read_excel("C:/Users/spare/OneDrive - Radboudumc/Literature, knowledge/Skin/KC differentiation/raid-response genes.xlsx")
+colnames(RRG) <- RRG[3, ]
+RRG <- RRG[-c(1:3), ]
+
+ggvenn::ggvenn(list('Rapid-response' = RRG$Gene, 'HC_KRT15' = rownames(diff_exp_hc_krt15)))
+ggvenn::ggvenn(list('Rapid-response' = RRG$Gene, 'HC_ASS1' = rownames(diff_exp_hc_ass1)))
+ggvenn::ggvenn(list('Rapid-response' = RRG$Gene, 'HC_Basal_I' = rownames(diff_exp_hc_basalI)))
+ggvenn::ggvenn(list('Rapid-response' = RRG$Gene, 'HC_Basal_II' = rownames(diff_exp_hc_basalII)))
+ggvenn::ggvenn(list('Rapid-response' = RRG$Gene, 'HC_Basal_IV' = rownames(diff_exp_hc_basalIV)))
+ggvenn::ggvenn(list('Rapid-response' = RRG$Gene, 'HC_StrGran' = rownames(diff_exp_hc_gran)))
+
+
+RRG$Gene[RRG$Gene %in% rownames(diff_exp_hc_krt15)]
+c("ATF3") %in% RRG$Gene[RRG$Gene %in% rownames(diff_exp_hc_krt15)]
+c("ATF3") %in% RRG$Gene[RRG$Gene %in% rownames(diff_exp_hc_ass1)]
+c("ATF3") %in% RRG$Gene[RRG$Gene %in% rownames(diff_exp_hc_basalI)]
+c("ATF3") %in% RRG$Gene[RRG$Gene %in% rownames(diff_exp_hc_basalII)]
+RRG$Gene[RRG$Gene %in% rownames(diff_exp_hc_basalIV)]
+c("ATF3") %in% RRG$Gene[RRG$Gene %in% rownames(diff_exp_hc_basalIV)]
+c("ATF3") %in% RRG$Gene[RRG$Gene %in% rownames(diff_exp_hc_gran)]
+```
+
+```{r literature check ATF3 in AD}
+VlnPlot(roj_rds, features = "ATF3", split.by = "disease", assay = "RNA")
+VlnPlot(roj_rds, features = "ATF3", split.by = "disease", assay = "integrated")
+VlnPlot(roj_rds, features = c("OVOL1", "GRHL3", "ZNF750", "PRDM1"), split.by = "disease", stack = T, flip = T, assay = "integrated")
+VlnPlot(roj_rds, features = c("PRKCA", "PRKCB", "PRKCG", "PRKCD", "PRKCE","PRKCH","PRKCQ"), split.by = "disease", assay = "RNA", stack = T, flip = T)
+
+FeaturePlot(roj_rds, features = c("ATF3"), split.by = "disease") # assay = 'RNA'
+
+```
+
+# Differential expression analysis 
+
+```{r DEanalysis global}
+
+table(roj_rds$svm_added_anno)
+
+markers <- FindMarkers(roj_rds[, roj_rds$disease == "HC"], group.by = "svm_added_anno", ident.1 = "Stratum Granulosum") 
+colnames(markers) <- paste("HC_granulosum", colnames(markers), sep = "_")
+markers$gene <- rownames(markers)
+
+# diffex_hc <- data.frame(gene = rownames(markers))
+# diffex_hc$pct_global <- markers$HC_KRT15_pct.2
+diffex_hc <- merge(x = diffex_hc, y = markers, by = "gene", all.x = TRUE, all.y = T)
+diffex_hc <- diffex_hc[ , -c(ncol(diffex_hc)-1, ncol(diffex_hc)-4)] #removes 2 columns
+
+#replaces all NAs in pct.global
+i <- diffex_hc[is.na(diffex_hc$pct_global), "gene"]
+
+for(gene_name in i){
+  pct_global <- markers[markers$gene == gene_name, 4] #find in markers
+  index <- which(diffex_hc$gene == gene_name) #find row in diffex_hc
+  diffex_hc$pct_global[index] <- pct_global #replace NA there
+}
+
+# test <- test %>% rename(HC_basal_II_p_val_adj =  HC_basalII_p_val_adj)
+
+setwd("C:/Users/spare/OneDrive - Radboudumc/Results/KCsinAD/FPcomp/KCinAD")
+saveRDS(diffex_hc, file = "diffex_hc.rds")
+write.xlsx(diffex_hc, file = "diffex_hc.xlsx")
+
+test <- FindMarkers(roj_rds, group.by = "disease", subset.ident = "Basal III KRT15+", ident.1 = "HC", ident.2 = "AD")
+
+
+GO_KRT15_hc = enrichGO(
+  gene = rownames(test)[test$p_val_adj < 0.05],
+  OrgDb = org.Hs.eg.db,
+  keyType = 'SYMBOL',
+  ont = "BP",
+  pAdjustMethod = "BH",
+  pvalueCutoff = 0.01,
+  qvalueCutoff  = 0.05
+)
+
+go <- as.data.frame(GO_KRT15_hc)
+
+test$gene <-  rownames(test)
+
+```
+
 
 ```{r DEanalysis basalIII}
 #separating all basal III subclusters based on disease condition
@@ -176,14 +363,37 @@ df_list <- list("DE_healthy" = hc, "DE_AD" = ad)
 # write.xlsx(df_list, file = "DE_basalIIIsubtypes.xlsx")
 ```
 
-```{r DEanalysis global}
-diffex <- FindMarkers(roj_rds, group.by = "svm_added_anno", ident.1 = "Basal III KRT15+")
-diffex <- FindMarkers(roj_rds, group.by = "svm_added_anno", ident.1 = "Basal III ASS1+")
-diffex <- FindMarkers(roj_rds, group.by = "svm_added_anno", ident.1 = "Basal I")
-diffex <- FindMarkers(roj_rds, group.by = "svm_added_anno", ident.1 = "Basal II")
-diffex <- FindMarkers(roj_rds, group.by = "svm_added_anno", ident.1 = "Basal IV")
-```
+```{r DEanalysis basalIII}
+#separating all basal III subclusters based on disease condition
+Idents(roj_rds) <- roj_rds$disease
+roj_rds_hc <- subset(roj_rds, ident = "HC")
+roj_rds_ad <- subset(roj_rds, ident = "AD")
 
+diff_exp_hc <- FindMarkers(roj_rds_hc, group.by = "svm_added_anno", logfc.threshold = 0, ident.1 = "Basal III KRT15+", ident.2 = "Basal III ASS1+") #this is NOT DIFF expression!!!
+diff_exp_ad <- FindMarkers(roj_rds_ad, group.by = "svm_added_anno", logfc.threshold = 0, ident.1 = "Basal III KRT15+", ident.2 = "Basal III ASS1+")
+
+hc <- diff_exp_hc[diff_exp_hc$p_val_adj < 0.05, ] # this is DIFF expression!!!
+hc["gene"] <- rownames(hc)
+ad <- diff_exp_ad[diff_exp_ad$p_val_adj < 0.05, ]
+ad["gene"] <- rownames(ad)
+
+#global
+diff_exp_hc_krt15 <- FindMarkers(roj_rds_hc, group.by = "svm_added_anno", ident.1 = "Basal III KRT15+")
+diff_exp_hc_ass1 <- FindMarkers(roj_rds_hc, group.by = "svm_added_anno", ident.1 = "Basal III ASS1+")
+
+table(diff_exp_hc_krt15$p_val_adj < 0.05)
+table(diff_exp_hc_krt15$avg_log2FC > 1.5)
+
+table(diff_exp_hc_ass1$p_val_adj < 0.05)
+table(diff_exp_hc_ass1$avg_log2FC > 1.5)
+
+diff_exp_hc_krt15 <- diff_exp_hc_krt15[diff_exp_hc_krt15$p_val_adj < 0.05, ] # this is DIFF expression!!!
+diff_exp_hc_ass1 <- diff_exp_hc_ass1[diff_exp_hc_ass1$p_val_adj < 0.05, ] # this is DIFF expression!!!
+
+#save DE list
+df_list <- list("DE_healthy" = hc, "DE_AD" = ad)
+# write.xlsx(df_list, file = "DE_basalIIIsubtypes.xlsx")
+```
 
 ```{r DE overlap healthy + AD}
 ggvenn(list("hc" = hc[hc$avg_log2FC > 0, ]$gene, "ad" = ad[ad$avg_log2FC > 0, ]$gene)) + ggtitle("upregulated in KRT15+ basal III")
@@ -191,7 +401,9 @@ ggvenn(list("hc" = hc[hc$avg_log2FC > 0, ]$gene, "ad" = ad[ad$avg_log2FC > 0, ]$
 ggvenn(list("hc" = hc[hc$avg_log2FC < 0, ]$gene, "ad" = ad[ad$avg_log2FC < 0, ]$gene)) + ggtitle("upregulated in ASS1+ basal III")
 ```
 
-Functional analysis of differentially expressed genes
+# Functional analysis of differentially expressed genes
+
+GO analysis 
 
 ```{r GO basal III}
 GO_KRT15_hc = enrichGO(
@@ -297,73 +509,423 @@ adkegg <- enrichKEGG(gene    = entrez_ad,
 
 Progeny
 
-```{r}
-progenyfv_2= function(objectrds, features = 2000, org = "Human",title1,title2,clus = F,colnames = ""){
+```{r progeny classic}
+objectrds <- roj_rds[, roj_rds$disease == "AD"] #roj_rds[, roj_rds$disease == "HC"]
+objectrds <- objectrds[, objectrds$svm_added_anno == "Basal III KRT15+" | objectrds$svm_added_anno == "Basal III ASS1+"]
+
+org <- c("Human")
+features <- 2000
+diffOrder <- c("AD_Basal III KRT15+", "AD_Basal III ASS1+", "AD_BASAL II", "AD_BASAL I", "AD_BASAL IV", "AD_Spinosum", "AD_Stratum Granulosum", "HC_Basal III KRT15+", "HC_Basal III ASS1+", "HC_BASAL II", "HC_BASAL I", "HC_BASAL IV", "HC_Spinosum", "HC_Stratum Granulosum")
+
+#data frame assigning identities to each cell
+CellsClusters <- data.frame(
+    Cell = names(Idents(objectrds)),
+    CellType = as.character(Idents(objectrds)),
+    stringsAsFactors = FALSE
+  )
+
+#calculation progeny, added as inactive assay to rds
+objectrds <- progeny(objectrds, scale = F, organism = org, top = features, perm = 1, return_assay = TRUE)
+  
+# objectrds@assays$progeny
+
+#We can now directly apply Seurat functions in our Progeny scores, like scaling the pathway activity scores
+objectrds <- Seurat::ScaleData(objectrds, assay = "progeny")
+
+#We transform Progeny scores into a data frame to better handling the results
+progeny_scores_df <- as.data.frame(t(GetAssayData(objectrds, assay = "progeny", slot = "scale.data"))) %>%
+  tibble::rownames_to_column("Cell") %>%
+  tidyr::pivot_longer(names_to = "Pathway", values_to = "Activity", c(-"Cell")) #transforms the table into a longer table format - assigning a separate row for every pathways + coordinating activity per cell 
+  
+#We match Progeny scores with the cell clusters.
+progeny_scores_df <- inner_join(progeny_scores_df, CellsClusters, by = c("Cell"))
+  
+#We summarize the Progeny scores by cell population
+summarized_progeny_scores <- progeny_scores_df %>%
+  group_by(Pathway, CellType) %>%
+  summarise(avg = mean(Activity), std = sd(Activity))
+
+#We prepare the data for the plot
+summarized_progeny_scores_df <- summarized_progeny_scores %>%
+  dplyr::select(-std) %>%   
+  spread(Pathway, avg) %>%
+  data.frame(row.names = "CellType", check.names = FALSE, stringsAsFactors = FALSE) 
+
+summarized_progeny_scores_df <- summarized_progeny_scores_df[order(diffOrder), ]
+
+#we prepare the plot
+paletteLength = 100
+myColor = colorRampPalette(c("darkgreen", "white", "darkorange"))(paletteLength)
+
+#to get the scale balanced and centered around 0
+# progenyBreaks = c(
+#   seq(min(summarized_progeny_scores_df), 0, length.out = ceiling(paletteLength / 2) + 1),
+#   seq(max(summarized_progeny_scores_df) / paletteLength, max(summarized_progeny_scores_df),  length.out = floor(paletteLength / 2)))
+# seq creates a sequence lowest to highest number with length.out determining length of sequence
+
+#we plot
+progeny_hmap <- pheatmap(t(summarized_progeny_scores_df),fontsize = 14, 
+                        fontsize_row = 10, cluster_cols = F,
+                        color = myColor, #breaks = progenyBreaks, 
+                        main =  paste0("PROGENy (", features , " features)"), angle_col = 45,
+                        treeheight_col = 0,  border_color = NA, Colv = NA) 
+```
+
+```{r progeny function comparison}
+# objectrds <- roj_rds
+# org <- "Human"
+# features <- 2000
+
+progenyfv_2 = function(objectrds, features = 2000, org = "Human", clustering = F, colorder){ 
+  #colnames = "" 
   
   require(progeny)
   require(pheatmap)
   require(tidyr)
   require(tibble)
+
+  #data frame assigning identities to each cell
+  CellsClusters <- data.frame(
+    Cell = names(Idents(objectrds)),
+    CellType = as.character(Idents(objectrds)),
+    stringsAsFactors = FALSE
+  )
+
+  #calculation progeny, added as inactive assay to rds
+  objectrds <- progeny(objectrds, scale = FALSE, organism = org, top = features, perm = 1, return_assay = TRUE)
+
+  #We can now directly apply Seurat functions, like scaling our Progeny scores
+  objectrds <- Seurat::ScaleData(objectrds, assay = "progeny")
   
-  
-  CellsClusters <- data.frame(Cell = names(Idents(objectrds)), 
-                              CellType = as.character(Idents(objectrds)),
-                              stringsAsFactors = FALSE)
-  objectrds <- progeny(objectrds, scale=FALSE, organism=org, top=features, perm=1, 
-                       return_assay = TRUE)
-  ## We can now directly apply Seurat functions in our Progeny scores. 
-  ## For instance, we scale the pathway activity scores. 
-  objectrds <- Seurat::ScaleData(objectrds, assay = "progeny") 
-  
-  ## We transform Progeny scores into a data frame to better handling the results
-  progeny_scores_df <- 
-    as.data.frame(t(GetAssayData(objectrds, slot = "scale.data", 
-                                 assay = "progeny"))) %>%
+  #We transform Progeny scores into a data frame to better handling the results
+  progeny_scores_df <- as.data.frame(t(GetAssayData(
+    objectrds,
+    slot = "scale.data",
+    assay = "progeny"
+  ))) %>%
     rownames_to_column("Cell") %>%
-    gather(Pathway, Activity, -Cell) 
+    gather(Pathway, Activity,-Cell) #transforms the table into a longer table format - assigning a separate row for every pathways + coordinating activity per cell 
   
-  ## We match Progeny scores with the cell clusters.
+  #We match Progeny scores with the cell clusters.
   progeny_scores_df <- inner_join(progeny_scores_df, CellsClusters)
   
-  ## We summarize the Progeny scores by cellpopulation
-  summarized_progeny_scores <- progeny_scores_df %>% 
+  #We summarize the Progeny scores by cell population
+  summarized_progeny_scores <- progeny_scores_df %>%
     group_by(Pathway, CellType) %>%
     summarise(avg = mean(Activity), std = sd(Activity))
+ 
+  #We prepare the data for the plot
   summarized_progeny_scores_df <- summarized_progeny_scores %>%
     dplyr::select(-std) %>%   
     spread(Pathway, avg) %>%
-    data.frame(row.names = 1, check.names = FALSE, stringsAsFactors = FALSE)
-  nr = nrow(summarized_progeny_scores_df)/2
-  df1 = summarized_progeny_scores_df[1:nr,]
-  df2 = summarized_progeny_scores_df[(nr+1):c(2*nr),]
-  summarized_progeny_scores_df = df1-df2#relative activity between two variables
-  if (length(colnames) > 1) {
-    rownames(summarized_progeny_scores_df) = colnames
-  }
+    data.frame(row.names = "CellType", check.names = FALSE, stringsAsFactors = FALSE)
+  
+  summarized_progeny_scores_df <- summarized_progeny_scores_df[order(colorder), ]
+  
+  #we prepare the plot
+  nr = nrow(summarized_progeny_scores_df) / 2
+  df1 = summarized_progeny_scores_df[1:nr, ]
+  df2 = summarized_progeny_scores_df[(nr + 1):c(2 * nr), ]
+  summarized_progeny_scores_df = df1 - df2 #relative activity between two variables
   
   paletteLength = 100
-  myColor = colorRampPalette(c("darkgreen", "white","darkorange"))(paletteLength)
+  myColor = colorRampPalette(c("darkgreen", "white", "darkorange"))(paletteLength)
   
-  progenyBreaks = c(seq(min(summarized_progeny_scores_df), 0, 
-                        length.out=ceiling(paletteLength/2) + 1),
-                    seq(max(summarized_progeny_scores_df)/paletteLength, 
-                        max(summarized_progeny_scores_df), 
-                        length.out=floor(paletteLength/2)))
-  x1 = pheatmap(t(summarized_progeny_scores_df[,-1]),fontsize=14, 
-                fontsize_row = 10, 
-                color=myColor, breaks = progenyBreaks, 
-                main = paste(title1,"Pathway Activity Relative to Healthy"), angle_col = 45,
-                treeheight_col = 0,  border_color = NA,cluster_cols = clus)
-  return(x1)
+  #to get the scale balanced and centered around 0
+  progenyBreaks = c(
+    seq(min(summarized_progeny_scores_df), 0, length.out = ceiling(paletteLength / 2) + 1),
+    seq(max(summarized_progeny_scores_df) / paletteLength, max(summarized_progeny_scores_df),  length.out = floor(paletteLength / 2)))
+  # seq creates a sequence lowest to highest number with length.out determining length of sequence
+
+  #we plot
+  progeny_hmap <- pheatmap(t(summarized_progeny_scores_df),
+                           fontsize = 12, fontsize_row = 9, 
+                           cluster_cols = clustering, cluster_rows = F, angle_col = 45, treeheight_col = 0,  border_color = NA, 
+                           color = myColor, breaks = progenyBreaks, 
+                           main =  paste0("PROGENy pathway activity relative to Healthy \n(", features , " features)"))
+  return(progeny_hmap)
 }
 
+
 #set correct identity and run progeny 
+
+x <- c("AD_Basal III KRT15+", "AD_Basal III ASS1+", "AD_BASAL II", "AD_BASAL I", "AD_BASAL IV", "AD_Spinosum", "AD_Stratum Granulosum", "HC_Basal III KRT15+", "HC_Basal III ASS1+", "HC_BASAL II", "HC_BASAL I", "HC_BASAL IV", "HC_Spinosum", "HC_Stratum Granulosum")
+#it is important that AD all together and before HC otherwise relation is not correct / inverse
+#order within AD or healthy can be as you like
+
 Idents(roj_rds) = paste0(roj_rds$disease,"_",roj_rds$svm_added_anno)
-progenyfv_2(roj_rds,title1 = "AD",features = 2000,colnames = c("Bas Ass1+","Bas Krt15+","BASAL I","BASAL II","BASAL IV","Spinosum","Granulosum")
-)
+progenyfv_2(roj_rds, features = 2000, org = "Human", colorder = x) #result only interpretable if equal amount of AD vs HC conditions!
 ```
 
-Checking TP63 target enrichment in KRT15 / ASS1 cells 
+A variety of pathways seem to be enriched, it is of great interest to know which genes contribute to this enrichment.
+
+```{r chatqtp solution}
+# Load required libraries
+library(Seurat)
+library(progeny)
+
+# Assuming you have a progeny object named 'progenyObj' containing lineage information and gene expression data
+# Assuming you have identified a set of genes contributing to a pathway of interest in 'pathway_genes'
+
+# Subset the progeny object to include only the pathway genes
+pathway_genes <- intersect(pathway_genes, rownames(progenyObj))
+pathway_data <- progenyObj[, pathway_genes]
+
+# Plot the genes contributing to the pathway using DotPlot
+DotPlot(object = pathway_data,
+         group.by = "cell_type",  # Group by a relevant metadata column (e.g., cell type)
+         assay = "RNA",           # Specify the assay containing gene expression data
+         cols = "blue",           # Color of the dots representing gene expression
+         dot.scale = 3)           # Size of the dots
+
+# Customize the plot appearance and other parameters as needed
+```
+
+
+```{r CdV - extract genes}
+# Use the unique_merged_gsea as dataframe
+df_unique_matrix <- data.frame(Unique_Merged_gsea)
+df_unique_matrix <- ad[ , c("gene","p_val_adj")]
+# we have a cleaned df_unique_matrix (a matrix containing gene names in column 1 and t-values in column 2)
+
+
+
+# We also progeny's gene to pathway contribution 
+prog_matirx <- getModel("Human", top = 100) %>%
+  tibble::rownames_to_column("GeneID")
+
+options(ggrepel.max.overlaps = Inf) #global option to always show all labels in graphs even if they might overlaps
+
+# KEEP IN MIND THIS IS THE COMPARISON OF THE FULL DATASET AGAINST 0
+# Androgen
+scat_plots_Androgen <-
+  progeny::progenyScatter(
+    df = df_unique_matrix,
+    weight_matrix = prog_matirx,
+    statName = "t_values",
+    verbose = FALSE
+  )
+plot(scat_plots_Androgen[[1]]$'Androgen')
+
+# EGFR
+scat_plots_EGFR <-
+  progeny::progenyScatter(
+    df = df_unique_matrix,
+    weight_matrix = prog_matirx,
+    statName = "t_values",
+    verbose = FALSE
+  )
+plot(scat_plots_EGFR[[1]]$'EGFR')
+
+# Estrogen
+scat_plots_Estrogen <-
+  progeny::progenyScatter(
+    df = df_unique_matrix,
+    weight_matrix = prog_matirx,
+    statName = "t_values",
+    verbose = FALSE
+  )
+plot(scat_plots_Estrogen[[1]]$'Estrogen')
+
+# JAK.STAT
+scat_plots_JAKSTAT <-
+  progeny::progenyScatter(
+    df = df_unique_matrix,
+    weight_matrix = prog_matirx,
+    statName = "t_values",
+    verbose = FALSE
+  )
+plot(scat_plots_JAKSTAT[[1]]$'JAK-STAT')
+
+# MAPK
+scat_plots_MAPK <-
+  progeny::progenyScatter(
+    df = df_unique_matrix,
+    weight_matrix = prog_matirx,
+    statName = "t_values",
+    verbose = FALSE
+  )
+plot(scat_plots_MAPK[[1]]$'MAPK')
+
+# NFKb
+scat_plots_NFKb <-
+  progeny::progenyScatter(
+    df = df_unique_matrix,
+    weight_matrix = prog_matirx,
+    statName = "t_values",
+    verbose = FALSE
+  )
+plot(scat_plots_NFKb[[1]]$'NFkB')
+
+# p53
+scat_plots_p53 <-
+  progeny::progenyScatter(
+    df = df_unique_matrix,
+    weight_matrix = prog_matirx,
+    statName = "t_values",
+    verbose = FALSE
+  )
+plot(scat_plots_p53[[1]]$'p53')
+
+# PI3K
+scat_plots_PI3K <-
+  progeny::progenyScatter(
+    df = df_unique_matrix,
+    weight_matrix = prog_matirx,
+    statName = "t_values",
+    verbose = FALSE
+  )
+plot(scat_plots_PI3K[[1]]$'PI3K')
+
+#TGFb
+scat_plots_TGFb <-
+  progeny::progenyScatter(
+    df = df_unique_matrix,
+    weight_matrix = prog_matirx,
+    statName = "t_values",
+    verbose = FALSE
+  )
+plot(scat_plots_TGFb[[1]]$'TGFb')
+
+# TNFa
+scat_plots_TNFa <-
+  progeny::progenyScatter(
+    df = df_unique_matrix,
+    weight_matrix = prog_matirx,
+    statName = "t_values",
+    verbose = FALSE
+  )
+plot(scat_plots_TNFa[[1]]$'TNFa')
+
+# Trail
+scat_plots_Trail <-
+  progeny::progenyScatter(
+    df = df_unique_matrix,
+    weight_matrix = prog_matirx,
+    statName = "t_values",
+    verbose = FALSE
+  )
+plot(scat_plots_Trail[[1]]$'Trail')
+
+# VEGF
+scat_plots_VEGF <-
+  progeny::progenyScatter(
+    df = df_unique_matrix,
+    weight_matrix = prog_matirx,
+    statName = "t_values",
+    verbose = FALSE
+  )
+plot(scat_plots_VEGF[[1]]$'VEGF')
+
+# WNT
+scat_plots_WNT <-
+  progeny::progenyScatter(
+    df = df_unique_matrix,
+    weight_matrix = prog_matirx,
+    statName = "t_values",
+    verbose = FALSE
+  )
+plot(scat_plots_WNT[[1]]$'WNT')
+
+# Hypoxia
+scat_plots_Hypoxia <-
+  progeny::progenyScatter(
+    df = df_unique_matrix,
+    weight_matrix = prog_matirx,
+    statName = "p_val_adj",
+    verbose = FALSE
+  )
+plot(scat_plots_Hypoxia[[1]]$Hypoxia)
+
+```
+
+The figure below is the type of representation you then get. The genes that are labeled are the ones that significantly contribute to you pathway enrichment. Each scatter plot has progeny weights as x-axis and the gene level stat used to compute progeny score as the y-axis. The marginal distribution of the gene level stats is displayed on the right of the plot to give visual support of the significance of each gene contributing to the progeny pathway score. The green and red colors represent the positive and negative contribution of genes to the progeny pathway, respectively. For each gene contribution, 4 cases are possible, as the combinations of the sign of the gene level stat and the sign of the gene level weight. Positive weight will lead to a positive(green)/negative(red) gene contribution if the gene level stat is positive/negative. Negative weight will lead to a negative(red)/positive(green) gene contribution if the gene level stat is positive/negative.
+
+
+
+```{r}
+seur_obj  <- roj_rds
+
+net <- decoupleR::get_progeny(organism = 'human', top = 100)
+  # Extract the normalized log-transformed counts
+  mat <- as.matrix(seur_obj@assays$spliced@data)
+  
+  # Run wmean
+  acts <- run_wmean(mat=mat, net=net, .source='source', .target='target',
+                    .mor='weight', times = 100, minsize = 5)
+  
+  # Extract norm_wmean and store it in pathways_wmean in data
+  seur_obj[['pathwayswmean']] <- acts %>%
+    filter(statistic == 'norm_wmean') %>%
+    pivot_wider(id_cols = 'source', names_from = 'condition',
+                values_from = 'score') %>%
+    column_to_rownames('source') %>%
+    Seurat::CreateAssayObject(.)
+  
+  # Change assay
+  DefaultAssay(object = seur_obj) <- "pathwayswmean"
+  
+  # Scale the data
+  seur_obj <- ScaleData(seur_obj)
+  seur_obj@assays$pathwayswmean@data <- seur_obj@assays$pathwayswmean@scale.data
+  # saveRDS(seur_obj, file = rds_file)
+
+# Extract activities from object as a long dataframe
+df <- t(as.matrix(seur_obj@assays$pathwayswmean@data)) %>%
+  as.data.frame() %>%
+  mutate(cluster = Idents(seur_obj)) %>%
+  pivot_longer(cols = -cluster, names_to = "source", values_to = "score") %>%
+  group_by(cluster, source) %>%
+  summarise(mean = mean(score))
+
+# Transform to wide matrix
+top_acts_mat <- df %>%
+  pivot_wider(id_cols = 'cluster', names_from = 'source',
+              values_from = 'mean') %>%
+  column_to_rownames('cluster') %>%
+  as.matrix()
+
+# Choose color pallette
+palette_length = 100
+my_color = colorRampPalette(c("Darkblue", "white","red"))(palette_length)
+
+my_breaks <- c(seq(-2, 0, length.out=ceiling(palette_length/2) + 1),
+               seq(0.05, 2, length.out=floor(palette_length/2)))
+
+# Plot
+
+
+pdf(paste(resultsdir, "10b_progeny_enrichment.pdf", sep = '/'), width = 5, height = 5)
+DimPlot(seur_obj, reduction = "umap", label = TRUE, pt.size = 0.5)
+pheatmap(top_acts_mat, border_color = NA, color=my_color, breaks = my_breaks) 
+
+for (pathway in rownames(seur_obj@assays$pathwayswmean)){
+  print(FeaturePlot(seur_obj, features = c(pathway)) & 
+  scale_colour_gradient2(low = 'blue', mid = 'white', high = 'red')) +
+  ggtitle(paste(pathway,'activity', sep = ' '))
+}
+
+dev.off()
+#output progeny table file
+output_df <- df %>%
+  pivot_wider(id_cols = 'cluster', names_from = 'source',
+              values_from = 'mean') %>%
+  column_to_rownames('cluster') %>%  t() %>% as.data.frame()
+
+output_df[['pathway']] <- rownames(output_df)
+#get the per catagory stdev
+# Get top tfs with more variable means across clusters
+std_df <- df %>%
+  group_by(source) %>%
+  summarise(std = sd(mean)) %>%
+  arrange(-abs(std)) 
+colnames(std_df) <- c('pathway', 'std')
+
+output_df <- merge(output_df,std_df, by = 'pathway')
+write.table(output_df, paste(resultsdir, "10b_progeny_enrichment.csv", sep = '/'), sep = ',')
+```
+
+# Checking TP63 target enrichment in KRT15 / ASS1 cells 
 
 ```{r TP63targets}
 #load targets p63 ChIP-seq
@@ -402,7 +964,7 @@ length(roj_rds@assays[["RNA"]]@counts@Dimnames[[1]])
 
 ```
 
-Evaluating expression of AHR signature genes in healthy / change in AD?
+# Evaluating expression of AHR signature genes in healthy / change in AD?
 
 ```{r AHRsig}
 AHRsig <- readxl::read_excel("C:/Users/spare/OneDrive - Radboudumc/Results/Pan-tissue AHR signature_Opitz(2020).xlsx") #open table S2 of Sadik et. al 2020
@@ -490,10 +1052,10 @@ GSEA_adASS1_df <- as.data.frame(GSEA_adASS1)
 
 ```
 
-
 # Save
 
 ```{r save}
+setwd("C:/Users/spare/OneDrive - Radboudumc/Results/KCsinAD/FPcomp/KCinAD")
 saveRDS(roj_rds, "roj_rds.rds")
 saveRDS(basal3_dake, "basal3_dake.rds")
 ```
