@@ -2450,13 +2450,22 @@ ggplot(dat, aes(x = svm_annotation, y = slingPseudotime_1, fill = svm_annotation
     ggtitle("AD") + labs(x = NULL, y = NULL) + theme(legend.position = "none")
 ```
 
-## Using tradeseq to look at gene expression during pseudotime
+## Perform differential gene expression analysis along the pseudotime trajectory
 
-Ward says expressed in at least 1 % of cells - not sure how he comes up with that 
+Here we use tradeseq to analyze differential expression alongside the pseudotime trajectory.
+
+For doing this, a fitting model is needed to infer a smoothed gene expression along the pseudotime trajectory. We first use evaluateK to  helps us to select a good number of knots to fit on. 
+
+```{r figure out best number of k to fit the NB-GAM}
+set.seed(123)
+icMat <- evaluateK(counts = roj_rds_sce@assays@data$counts, sds = SlingshotDataSet(roj_rds_sce), nGenes = 100)
+# should i use logtransformed counts here or raw counts -> check input on fitGAM
+```
+
+Now we choose a subset of highly expressed genes that we will later crosscheck for highly variable expression. Only these genes are inferred along the pseudotime trajectory (for reasons of calculation time). 
 
 ```{r select highly expressed genes}
 counts <- as.data.frame(roj_rds@assays$RNA@counts)
-roj_rds@assays$RNA@data
 
 #calculate log10 transformed counts for all genes
 gene_expr <- data.frame(gene_expr = rowSums(counts)) #calculates the genes total counts across all cells
@@ -2468,14 +2477,14 @@ gene_expr$percent_cell <- apply(counts, 1, function(x){length(which(x != 0)) / n
 
 #set count and % cells expressing thresholds and indicate them by assigned color
 #current threshold: log10 counts > 3.1 and > 0.2 % of cells express the gene 
-gene_expr$selected <- "no"
-gene_expr[gene_expr$log10_counts > 3.1 & gene_expr$percent_cell > 0.2, ]$selected <- "yes"
+gene_expr$highly_expressed <- "no"
+gene_expr[gene_expr$log10_counts > 3.1 & gene_expr$percent_cell > 0.2, ]$highly_expressed <- "yes"
 color <- c("black","red")
 names(color) <- c("no","yes")
 
 #plot
 library(ggrepel)
-ggplot(data = gene_expr, aes(x = log10_counts, y = percent_cell, col = selected)) + geom_point() + 
+ggplot(data = gene_expr, aes(x = log10_counts, y = percent_cell, col = highly_expressed)) + geom_point() + 
   scale_colour_manual(values = color) + 
   geom_vline(xintercept = 3.1, col = "red") + 
   geom_hline(yintercept = 0.2, col = "red") +
@@ -2483,54 +2492,50 @@ ggplot(data = gene_expr, aes(x = log10_counts, y = percent_cell, col = selected)
   theme_light() 
 ```
 
-```{r figure out best number of k's to fit the NB-GAM}
-set.seed(123)
-icMat <- evaluateK(counts = roj_rds_sce@assays@data$counts, sds = SlingshotDataSet(roj_rds_sce), parallel = T) #k = 3:10, nGenes = 500, verbose = FALSE, plot = TRUE
-print(icMat[1:2, ])
-```
-
-
-```{r}
-set.seed(123)
-sce <- fitGAM(counts = counts, sds = SlingshotDataSet(roj_rds_sce), nknots = 6)
-
-roj_rds_sce@assays@data$counts
-roj_rds@assays$RNA@data
-roj_rds@assays$RNA@counts # = counts
-```
-
+Now we use a negative binomial general additive model to infer the smoothed gene expression of the highly expressed and highly variable genes with the knots we have determined before. 
 
 ```{r calculate NB-GAM}
-highexpr <- rownames(gene_expr[gene_expr$color == "yes", ])
+# setwd("C:/Users/spare/OneDrive - Radboudumc/Results/KCsinAD/FPcomp/KCinAD")
+# roj_rds_sce_gam <- readRDS("roj_rds_sce_gam.rds")
 
 roj_rds <- FindVariableFeatures(roj_rds)
 
 #figure out how many cores can be used 
 BPPARAM <- BiocParallel::bpparam() # bpnworkers = number of cores
-BPPARAM$workers <- 6 #use 6 cores, thats also the default
+BPPARAM$workers <- 6 #use 6 cores, that's also the default
 
 #calculating a negative binomial generalized additive model to interfere gene expression along the (slingshot calculated) trajectory 
-roj_rds_slb_gam <- fitGAM(counts = roj_rds@assays$RNA@data, sds = SlingshotDataSet(roj_rds_sce),
-                          genes = intersect(roj_rds@assays$RNA@var.features, rownames(gene_expr[gene_expr$color == "yes", ])), #which genes to fit, default is all, 
-                          nknots = 6, #nknots = 6 is default but can be changed) 
-                          parallel = T)
-# BPPARAM = BiocParallel::bpparam(bpparamClass = MulticoreParam)
+set.seed(123)
+roj_rds_sce_gam <- fitGAM(counts = as.matrix(roj_rds_sce@assays@data$counts), sds = SlingshotDataSet(roj_rds_sce), nknots = 6, parallel = T)                      # genes = intersect(roj_rds@assays$RNA@var.features, rownames(gene_expr[gene_expr$color == "yes", ]))
+                        #genes to fit, default = all
+#used logtransformed counts before roj_rds@assays$RNA@data, now raw counts
 
-setwd("C:/Users/spare/OneDrive - Radboudumc/Results/KCsinAD/FPcomp/KCinAD")
-roj_rds_slb_gam <- readRDS("roj_rds_slb_gam.rds")
-
-assoRes_all <- associationTest(roj_rds_slb_gam, lineages = T)
+#statistical test to check if gene expression changes across trajectory
+diffex_trajectory <- associationTest(roj_rds_sce_gam, lineages = T) #lineages = T -> test for all lineages independently 
+diffex_trajectory$gene <- rownames(diffex_trajectory)
 
 # setwd("C:/Users/spare/OneDrive - Radboudumc/Results/KCsinAD/FPcomp/KCinAD")
-# saveRDS(roj_rds_slb_gam, "roj_rds_slb_gam.rds")
-# write.xlsx(assoRes_all, file = "assoRes_all.xlsx")
+# saveRDS(roj_rds_sce_gam, "roj_rds_sce_gam.rds")
+# write.xlsx(diffex_trajectory, file = "diffex_trajectory.xlsx")
 
-pseudotime_genes <- assoRes_all[assoRes_all$pvalue_1 < 0.05, ]
-pseudotime_genes <- intersect(rownames(pseudotime_genes), rownames(gene_expr[gene_expr$color == "yes", ]))
+diffex_trajectory <- diffex_trajectory[diffex_trajectory$pvalue_1 < 0.05, ]
+pseudotime_genes <- intersect(diffex_trajectory$gene, rownames(gene_expr[gene_expr$highly_expressed == "yes", ]))
 ```
 
-understand code, 
-talk to ward about integrated vs non-integrated -> optimize heatmap clustering 
+HOW MANY KNOTS TO USE?
+use only subset of genes for pseudotime gam modelling?
+
+```{r}
+length(roj_rds@assays$RNA@var.features)
+length(rownames(gene_expr[gene_expr$highly_expressed == "yes", ]))
+
+table(roj_rds@assays$RNA@var.features %in% rownames(gene_expr[gene_expr$highly_expressed == "yes", ]))
+```
+
+
+Now we draw a heatmap to visualize gene expression across the trajectory. We use only the highly and differential expressed genes for this that also are found highly variable. 
+
+talk to ward about integrated vs non-integrated -> THEN optimize heatmap clustering 
 
 ```{r heatmap gene expression differentiation healthy}
 library(ComplexHeatmap)
@@ -2540,7 +2545,7 @@ genes_to_anno <- c("PTTG1", "KRT5", "KRT14", "UHRF1", "KRT6A", "ASS1", "KRT15", 
 custom_colors <- c("basal III" = "#8DA0CB", "basal II" = "#66C2A5", "basal I" = "#FFD92F", "basal IV" = "#A6D854", "stratum spinosum" = "#FC8D62", "stratum granulosum" = "#E78AC3")
 
 #healthy trajectory
-genes_heatmap <- c(pseudotime_genes, gene_anno)
+genes_heatmap <- c(genes_to_anno, genes_to_anno)
 counts_hc <- as.data.frame(roj_rds_hc@assays$RNA@counts)
 heatmap_df <- counts_hc[genes_heatmap, ] # filter for desired genes
 colpt <- as.data.frame(roj_rds_hc@meta.data[ , c("slingPseudotime_1","svm_annotation")]) #obtain pseudotime
