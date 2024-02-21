@@ -2230,7 +2230,7 @@ pheatmap(wnt_enriched_genes,fontsize=14, show_rownames = TRUE,color=myColor,clus
 
 # Pseudotime analysis
 
-Using slingshot on the non-integrated data provides a more accurate representation of the cell trajectory(!!) when comparing HC vs AD. However, when looking at individual genes, pseudotime performed on the integrated umap but looking at non-integrated gene expression ensures having the same trajectory of AD and HC. 
+Using slingshot on the non-integrated data provides a more accurate representation of the cell trajectory(!!) when comparing HC vs AD. However, when looking at individual genes, pseudotime performed on the integrated umap but looking at non-integrated gene expression ensures having the same trajectory of AD and HC. This is what we do when we perform trajectory interference on integrated data, the tradeseq infered gene expression analysis is using non-integrated counts again. 
 Conclusion: show pseudotime timeline derived from non-integrated umap. show pseudotime heatmap of genes derived from integrated umap (gene expression will remain from non-integrated RNA assay)
 
 ## Pseudotime on non-integrated data
@@ -2253,7 +2253,7 @@ object <- FindNeighbors(object, dims = 1:ndims, verbose = F)
 object <- FindClusters(object, resolution = 0.3 ,verbose = F)
 object <- RunUMAP(object, dims = 1:ndims, verbose = F)
 
-DimPlot(object, group.by = "disease")
+DimPlot(object, group.by = "sample")
 ```
 
 Running Slingshot -> I get a different trajectory than Ward but he said it is completely okay and might likely be because of package differences (not sure about the last one). I might be able to replicate it if I specify clusterLabels (svm_annotation) but no starting cluster. 
@@ -2385,6 +2385,7 @@ FeaturePlot(roj_rds_ad,features = c("slingPseudotime_1_mod")) + ggtitle("AD pseu
 #print(x1+x2|x3+x4) #nice way of reordering plots when printing
 ```
 
+
 ## Pseudotime on integrated data
 
 You have to calculate pseudotime on integrated umap but continue plotting non-integrated RNA assay when looking at gene expression
@@ -2450,53 +2451,55 @@ ggplot(dat, aes(x = svm_annotation, y = slingPseudotime_1, fill = svm_annotation
     ggtitle("AD") + labs(x = NULL, y = NULL) + theme(legend.position = "none")
 ```
 
+
 ## Perform differential gene expression analysis along the pseudotime trajectory
 
 Here we use tradeseq to analyze differential expression alongside the pseudotime trajectory.
 
-For doing this, a fitting model is needed to infer a smoothed gene expression along the pseudotime trajectory. We first use evaluateK to  helps us to select a good number of knots to fit on. 
+For doing this, a fitting model is needed to infer a smoothed gene expression along the pseudotime trajectory. We first use evaluateK to  helps us to select a good number of knots to fit on. It is best to do that applying the filter that you will also use for your NB-GAM. 
 
 ```{r figure out best number of k to fit the NB-GAM}
 set.seed(123)
 icMat <- evaluateK(counts = roj_rds_sce@assays@data$counts, sds = SlingshotDataSet(roj_rds_sce), nGenes = 100)
-# should i use logtransformed counts here or raw counts -> check input on fitGAM
 ```
 
-Now we choose a subset of highly expressed genes that we will later crosscheck for highly variable expression. Only these genes are inferred along the pseudotime trajectory (for reasons of calculation time). 
+Now we use a negative binomial general additive model to infer the smoothed gene expression of the highly variable genes with the knots we have determined before. 
+!you might want to play around with the filtering, maybe you also want to take the overlap of highly variable expressed genes with highly expressed genes or only use the highly expressed genes.!
+-> reason is that you want to get rid of "noise" in the heatmap, mean genes that dont change alongside the trajectory 
+
+<!-- Here we choose a subset of highly expressed genes that we could later use or overlap with highly variable expression -->
 
 ```{r select highly expressed genes}
-counts <- as.data.frame(roj_rds@assays$RNA@counts)
-
-#calculate log10 transformed counts for all genes
-gene_expr <- data.frame(gene_expr = rowSums(counts)) #calculates the genes total counts across all cells
-gene_expr$log10_counts <- log10(gene_expr$gene_expr + 1) #log10 transform that number 
-gene_expr$gene_expr <- NULL
-
-#obtain percentage of cells expressing the gene 
-gene_expr$percent_cell <- apply(counts, 1, function(x){length(which(x != 0)) / ncol(counts)}) #margin = 1 indicates rows, #how many cells have expression > 0 
-
-#set count and % cells expressing thresholds and indicate them by assigned color
-#current threshold: log10 counts > 3.1 and > 0.2 % of cells express the gene 
-gene_expr$highly_expressed <- "no"
-gene_expr[gene_expr$log10_counts > 3.1 & gene_expr$percent_cell > 0.2, ]$highly_expressed <- "yes"
-color <- c("black","red")
-names(color) <- c("no","yes")
-
-#plot
-library(ggrepel)
-ggplot(data = gene_expr, aes(x = log10_counts, y = percent_cell, col = highly_expressed)) + geom_point() + 
-  scale_colour_manual(values = color) + 
-  geom_vline(xintercept = 3.1, col = "red") + 
-  geom_hline(yintercept = 0.2, col = "red") +
-  geom_text_repel(aes(label = ifelse(percent_cell > 0.2 & log10_counts > 4.5, rownames(gene_expr), "")), size = 3) + #these genes are labelled
-  theme_light() 
+# counts <- as.data.frame(roj_rds@assays$RNA@counts)
+# 
+# #calculate log10 transformed counts for all genes
+# gene_expr <- data.frame(gene_expr = rowSums(counts)) #calculates the genes total counts across all cells
+# gene_expr$log10_counts <- log10(gene_expr$gene_expr + 1) #log10 transform that number 
+# gene_expr$gene_expr <- NULL
+# 
+# #obtain percentage of cells expressing the gene 
+# gene_expr$percent_cell <- apply(counts, 1, function(x){length(which(x != 0)) / ncol(counts)}) #margin = 1 indicates rows, #how many cells have expression > 0 
+# 
+# #set count and % cells expressing thresholds and indicate them by assigned color
+# #current threshold: log10 counts > 3.1 and > 0.2 % of cells express the gene 
+# gene_expr$highly_expressed <- "no"
+# gene_expr[gene_expr$log10_counts > 3.1 & gene_expr$percent_cell > 0.2, ]$highly_expressed <- "yes"
+# color <- c("black","red")
+# names(color) <- c("no","yes")
+# 
+# #plot
+# library(ggrepel)
+# ggplot(data = gene_expr, aes(x = log10_counts, y = percent_cell, col = highly_expressed)) + geom_point() + 
+#   scale_colour_manual(values = color) + 
+#   geom_vline(xintercept = 3.1, col = "red") + 
+#   geom_hline(yintercept = 0.2, col = "red") +
+#   geom_text_repel(aes(label = ifelse(percent_cell > 0.2 & log10_counts > 4.5, rownames(gene_expr), "")), size = 3) + #these genes are labelled
+#   theme_light() 
 ```
-
-Now we use a negative binomial general additive model to infer the smoothed gene expression of the highly expressed and highly variable genes with the knots we have determined before. 
 
 ```{r calculate NB-GAM}
 # setwd("C:/Users/spare/OneDrive - Radboudumc/Results/KCsinAD/FPcomp/KCinAD")
-# roj_rds_sce_gam <- readRDS("roj_rds_sce_gam.rds")
+# roj_rds_sce_gam <- readRDS("roj_rds_sce_gam_counts_9knots_varfeaturesONLY.rds")
 
 roj_rds <- FindVariableFeatures(roj_rds)
 
@@ -2506,106 +2509,229 @@ BPPARAM$workers <- 6 #use 6 cores, that's also the default
 
 #calculating a negative binomial generalized additive model to interfere gene expression along the (slingshot calculated) trajectory 
 set.seed(123)
-roj_rds_sce_gam <- fitGAM(counts = as.matrix(roj_rds_sce@assays@data$counts), sds = SlingshotDataSet(roj_rds_sce), nknots = 6, parallel = T)                      # genes = intersect(roj_rds@assays$RNA@var.features, rownames(gene_expr[gene_expr$color == "yes", ]))
-                        #genes to fit, default = all
-#used logtransformed counts before roj_rds@assays$RNA@data, now raw counts
+roj_rds_sce_gam <- fitGAM(counts = as.matrix(roj_rds_hc@assays$RNA@counts), sds = SlingshotDataSet(roj_rds_sce), nknots = 9, parallel = T, genes = roj_rds@assays$RNA@var.features) #genes to fit, default = all
+#genes = intersect(roj_rds@assays$RNA@var.features, rownames(gene_expr[gene_expr$color == "yes", ]))
+# roj_rds_sce@assays@data$counts
+
+# summary(roj_rds_sce_gam[["KRT6"]])
 
 #statistical test to check if gene expression changes across trajectory
-diffex_trajectory <- associationTest(roj_rds_sce_gam, lineages = T) #lineages = T -> test for all lineages independently 
+diffex_trajectory <- associationTest(roj_rds_sce_gam) #lineages = T -> test for all lineages independently, needed if you have several lineages
 diffex_trajectory$gene <- rownames(diffex_trajectory)
 
 # setwd("C:/Users/spare/OneDrive - Radboudumc/Results/KCsinAD/FPcomp/KCinAD")
-# saveRDS(roj_rds_sce_gam, "roj_rds_sce_gam.rds")
-# write.xlsx(diffex_trajectory, file = "diffex_trajectory.xlsx")
-
-diffex_trajectory <- diffex_trajectory[diffex_trajectory$pvalue_1 < 0.05, ]
-pseudotime_genes <- intersect(diffex_trajectory$gene, rownames(gene_expr[gene_expr$highly_expressed == "yes", ]))
+# saveRDS(roj_rds_sce_gam, "roj_rds_sce_gam_counts_9knots_varfeaturesONLY.rds")
+# write.xlsx(diffex_trajectory, file = "diffex_trajectory_counts_9knots_varfeaturesONLY.xlsx")
 ```
 
-HOW MANY KNOTS TO USE?
-use only subset of genes for pseudotime gam modelling?
+Now we draw a heatmap to visualize gene expression across the trajectory. We use only the highly variable genes for this that are also differential expressed along the trajectory. !As mentioned, try out if you find high background without change and therefore want to refine the selection!
 
-```{r}
-length(roj_rds@assays$RNA@var.features)
-length(rownames(gene_expr[gene_expr$highly_expressed == "yes", ]))
-
-table(roj_rds@assays$RNA@var.features %in% rownames(gene_expr[gene_expr$highly_expressed == "yes", ]))
-```
-
-
-Now we draw a heatmap to visualize gene expression across the trajectory. We use only the highly and differential expressed genes for this that also are found highly variable. 
-
-talk to ward about integrated vs non-integrated -> THEN optimize heatmap clustering 
-
-```{r heatmap gene expression differentiation healthy}
+```{r heatmap settings}
 library(ComplexHeatmap)
 
-roj_rds_hc <- subset(roj_rds, disease == "HC")
-genes_to_anno <- c("PTTG1", "KRT5", "KRT14", "UHRF1", "KRT6A", "ASS1", "KRT15", "KRT16", "KRT1", "KRT10", "FLG") #genes to annotate
+pseudotime_genes <- diffex_trajectory[diffex_trajectory$pvalue_1 < 0.05 & !is.na(diffex_trajectory$pvalue_1), ]
+# pseudotime_genes <- intersect(diffex_trajectory2$gene, rownames(gene_expr[gene_expr$highly_expressed == "yes", ]))
+
+genes_to_anno <- c("KRT5", "KRT14", "KRT15", "ASS1", "MCM3", "MKI67", "AHR", "TFAP2A", "OVOL1", "GRHL3", "TP63", "ZNF750", "ATF3", "KRT1", "KRT10", "KRT6", "KRT16", "FLG", "IVL") #genes to annotate
+heatmap_genes <- c(pseudotime_genes$gene, genes_to_anno)
+
 custom_colors <- c("basal III" = "#8DA0CB", "basal II" = "#66C2A5", "basal I" = "#FFD92F", "basal IV" = "#A6D854", "stratum spinosum" = "#FC8D62", "stratum granulosum" = "#E78AC3")
+```
 
+
+
+
+#later: put tree height cluster_rows to F / 0
+#work on adjusting clustering
+#extract genes 
+
+First in healthy epidermis
+
+```{r heatmap gene expression differentiation healthy}
 #healthy trajectory
-genes_heatmap <- c(genes_to_anno, genes_to_anno)
-counts_hc <- as.data.frame(roj_rds_hc@assays$RNA@counts)
-heatmap_df <- counts_hc[genes_heatmap, ] # filter for desired genes
-colpt <- as.data.frame(roj_rds_hc@meta.data[ , c("slingPseudotime_1","svm_annotation")]) #obtain pseudotime
-colpt$cells  <-  rownames(colpt)
-colpt <- na.omit(colpt)
-heatmap_df <- heatmap_df[ , colpt$cells] # remove cells not included in pseudotime
-heatmap_df <- heatmap_df[ , order(colpt$slingPseudotime_1)] # order by pseudotime
-annotationnames <- colpt[order(colpt$slingPseudotime_1), ]$svm_annotation
-annotationnames <- annotationnames[!is.na(annotationnames)]
+roj_rds_hc <- subset(roj_rds, disease == "HC")
 
-heatmap_df <- t(apply(heatmap_df, 1, function(x){scale(x)})) #change values into z score
-heatmap_df <- t(apply(heatmap_df, 1, function(x){zoo::rollmean(x, 100, align = "left")})) # apply rolling average to rows
-rownames(heatmap_df) <- genes_heatmap
-heatmap_df <- na.omit(heatmap_df)
+heatmap_hc <- as.data.frame(roj_rds_hc@assays$RNA@counts)
+heatmap_hc <- heatmap_hc[rownames(heatmap_hc) %in% heatmap_genes, ] # filter for desired genes
+
+#order cells in pseudotime
+pseudtime_cells <- as.data.frame(roj_rds_hc@meta.data[ , c("slingPseudotime_1","svm_annotation")]) #obtain pseudotime
+heatmap_hc <- heatmap_hc[ , rownames(pseudtime_cells)] #sanity check: remove cells not included in pseudotime
+heatmap_hc <- heatmap_hc[ , order(pseudtime_cells$slingPseudotime_1)] # order by pseudotime
+
+#change gene counts to z score and smooths gene expression
+heatmap_hc <- t(apply(heatmap_hc, 1, function(x) scale(x))) #1 specifies rows, scale calculates the z score
+heatmap_hc <- t(apply(heatmap_hc, 1, function(x){zoo::rollmean(x, 100, align = "center")})) #computes a rolling mean to the rows, this smooths out the outliers
+# tried with 20 and 50 but it produces a more patchy heatmap and the expression pattern stay the same 
+heatmap_hc <- na.omit(heatmap_hc) #around 9 genes are skipped because they only have 0 counts (in HC),
+heatmap_hc <- as.data.frame(heatmap_hc) #otherwise the combining with heatmap_hc later gives weird results
 
 #annotate cell types
-annot_celltype <- HeatmapAnnotation(
-  celltype = annotationnames[1 : ncol(heatmap_df)],
-  col = list(celltype = custom_colors)
-  )
+svm_annotation_hc <- pseudtime_cells[order(pseudtime_cells$slingPseudotime_1), ]$svm_annotation
+svm_annotation_hc <- svm_annotation_hc[50 : (ncol(heatmap_hc) + 49)] #centered rolling mean -> first 50 cells don't have a direct output 
+
+annot_celltype_hc <- HeatmapAnnotation(celltype = svm_annotation_hc, col = list(celltype = custom_colors))
 
 #annotate genes of interest
 annot_genes <- HeatmapAnnotation(
-  GeneOfInterest = anno_mark(at = match(genes_to_anno, rownames(heatmap_df)),
+  GeneOfInterest = anno_mark(at = match(genes_to_anno, rownames(heatmap_hc)),
                              labels = genes_to_anno),
   which = "row"
   ) #show_annotation_name = T
  
 #K means with 7 groups
-heatmap_trajectory_hc <- draw(Heatmap(heatmap_df, top_annotation = annot_celltype, right_annotation = annot_genes,
-                                      name = "z-score", col = colorRamp2(c(min(heatmap_df), 0, max(heatmap_df)), c("blue", "lightyellow", "red")), #coloring heatmap
+heatmap_trajectory_hc <- draw(Heatmap(heatmap_hc, right_annotation = annot_genes, top_annotation = annot_celltype_hc,
+                                      col = colorRamp2(c(min(heatmap_hc), 0, max(heatmap_hc)), c("blue", "lightyellow", "red")),
+                                      name = "z-score", 
                                       km = 7, row_km_repeats = 1, row_dend_reorder = F, cluster_rows = T, clustering_method_rows = "single", cluster_row_slices = F, #clustering
-                                      row_title_rot = 0, show_row_names = F, 
+                                      row_title_rot = 0, show_row_names = F, show_column_names = F,
                                       cluster_columns  = F))
-
-#later: put cluster_rows to F
 ```
 
+```{r explore clustering}
+clust_dist <- c("euclidean", "maximum", "manhattan", "canberra", "minkowski", "pearson", "spearman", "kendall", "binary") 
+clust_methods <- c("ward.D", "ward.D2",  "centroid", "complete", "average", "mcquitty", "median", "single") 
+heatmap_all_compare <- vector(mode = "list") #creates a list, a list can have different elements as vectors, matrixes, other lists
+
+library(ggplotify)
+
+for (method in clust_dist){
+  heatmap_all_compare[[method]] <- as.ggplot(
+    Heatmap(heatmap_hc, right_annotation = annot_genes, top_annotation = annot_celltype_hc,
+            col = colorRamp2(c(min(heatmap_hc), 0, max(heatmap_hc)), c("blue", "lightyellow", "red")),
+            name = "z-score", clustering_distance_rows = method, 
+            row_dend_reorder = F, cluster_rows = T,
+            clustering_method_rows = "single", cluster_row_slices = F,
+            row_title_rot = 0, show_row_names = F, show_column_names = F, cluster_columns  = F)
+                                             )
+}
+
+clustering_method_rows = "complete",
+km = 7, row_km_repeats = 1, 
+
+setwd("C:/Users/spare/OneDrive - Radboudumc/Results/KCsinAD/FPcomp/KCinAD")
+pdf("Heatmap_HC_clusteringDistance.pdf", height = 8, width = 12)
+plot_grid(plotlist = heatmap_all_compare) #another way of multiplotting
+dev.off()
+```
+
+
 ```{r extract genes}
+summary(row_order(heatmap_trajectory_hc))
+
+
 orders <- row_order(heatmap_trajectory_hc)
-genelist <- rownames(dfhc)
+genelist <- rownames(heatmap_df)
 genelistdf <- as.data.frame(genelist)
 genelistdf["cluster"] = ""
 for (x in as.character(1:7)) {
   tmplist = orders[x]
   genelist2 = genelist[tmplist[[1]]]
-  genelistdf[genelist2,]=paste("cluster",x)
+  genelistdf[genelist2, ] = paste("cluster", x)
 }
-genelistdf = genelistdf[genelistdf$cluster!="",]
-genelistdf$cluster=NULL
-genelistdf$gene = rownames(genelistdf)
-genelistdf_hc = genelistdf
+
+genelistdf <- genelistdf[genelistdf$cluster != "", ]
+genelistdf$cluster <- NULL
+genelistdf$gene <- rownames(genelistdf)
+
+
+h1 <- row.names(heatmap_hc)[row_order(heatmap_trajectory_hc)[[1]]] #k means: $`1`, split: [[1]]
+h2 <- row.names(z_limma)[row_order(pearson14)[[2]]]
+h3 <- row.names(z_limma)[row_order(pearson14)[[3]]]
+h4 <- row.names(z_limma)[row_order(pearson14)[[4]]]
+h5 <- row.names(z_limma)[row_order(pearson14)[[5]]]
+h6 <- row.names(z_limma)[row_order(pearson14)[[6]]]
+h7 <- row.names(z_limma)[row_order(pearson14)[[7]]]
+h8 <- row.names(z_limma)[row_order(pearson14)[[8]]]
+h9 <- row.names(z_limma)[row_order(pearson14)[[9]]]
+h10 <- row.names(z_limma)[row_order(pearson14)[[10]]]
+h11 <- row.names(z_limma)[row_order(pearson14)[[11]]]
+h12 <- row.names(z_limma)[row_order(pearson14)[[12]]]
+h13 <- row.names(z_limma)[row_order(pearson14)[[13]]]
+h14 <- row.names(z_limma)[row_order(pearson14)[[14]]]
+
+c1 <- c(h7, h8)
+c2 <- c(h9, h10, h11, h12, h13, h14)
+c21 <- c(h9, h10)
+c22 <- c(h12, h13, h14)
+c23 <- c(h11)
+c3 <- c(h1, h2, h3, h4, h5, h6)
+c31 <- c(h4, h5, h6)
+c32 <- c(h2, h3)
+c33 <- c(h1)
 ```
 
+And now in AD epidermis
 
 ```{r heatmap gene expression differentiation AD}
-
+#AD trajectory
 roj_rds_ad <- subset(roj_rds, disease == "AD")
+
+heatmap_ad <- as.data.frame(roj_rds_ad@assays$RNA@counts)
+heatmap_ad <- heatmap_ad[rownames(heatmap_ad) %in% heatmap_genes, ] # filter for desired genes
+
+#order cells in pseudotime
+pseudtime_cells <- as.data.frame(roj_rds_ad@meta.data[ , c("slingPseudotime_1","svm_annotation")]) #obtain pseudotime
+heatmap_ad <- heatmap_ad[ , rownames(pseudtime_cells)] #sanity check: remove cells not included in pseudotime
+heatmap_ad <- heatmap_ad[ , order(pseudtime_cells$slingPseudotime_1)] # order by pseudotime
+
+#change gene counts to z score and smooths gene expression
+heatmap_ad <- t(apply(heatmap_ad, 1, function(x) scale(x))) #1 specifies rows, scale calculates the z score
+heatmap_ad <- t(apply(heatmap_ad, 1, function(x){zoo::rollmean(x, 100, align = "center")})) #computes a rolling mean to the rows, this smooths out the outliers
+# tried with 20 and 50 but it produces a more patchy heatmap and the expression pattern stay the same 
+heatmap_ad <- na.omit(heatmap_ad) #around 2 genes are skipped because they only have 0 counts (in ad)
+heatmap_ad <- as.data.frame(heatmap_ad) #otherwise the combining with heatmap_hc later gives weird results
+
+#annotate cell types
+svm_annotation_ad <- pseudtime_cells[order(pseudtime_cells$slingPseudotime_1), ]$svm_annotation
+svm_annotation_ad <- svm_annotation_ad[50 : (ncol(heatmap_ad) + 49)] #centered rolling mean -> first 50 cells don't have a direct output 
+
+annot_celltype <- HeatmapAnnotation(celltype = svm_annotation_ad, col = list(celltype = custom_colors))
+
+#annotate genes of interest
+annot_genes <- HeatmapAnnotation(
+  GeneOfInterest = anno_mark(at = match(genes_to_anno, rownames(heatmap_ad)),
+                             labels = genes_to_anno),
+  which = "row"
+  ) #show_annotation_name = T
+ 
+#K means with 7 groups
+heatmap_trajectory_ad <- draw(Heatmap(heatmap_ad, right_annotation = annot_genes, top_annotation = annot_celltype,
+                                      col = colorRamp2(c(min(heatmap_ad), 0, max(heatmap_ad)), c("blue", "lightyellow", "red")),
+                                      name = "z-score", 
+                                      km = 7, row_km_repeats = 1, row_dend_reorder = F, cluster_rows = T, clustering_method_rows = "single", cluster_row_slices = F, #clustering
+                                      row_title_rot = 0, show_row_names = F, show_column_names = F,
+                                      cluster_columns  = F))
 ```
 
+And now both together in a side-by-side heatmap 
+
+```{r heatmap gene expression differentiation HC and AD}
+#match per gene ad and hc dataframe
+shared_genes <- intersect(rownames(heatmap_hc), rownames(heatmap_ad)) #only use genes present in both heatmaps
+heatmap_hcad <- cbind(heatmap_hc[shared_genes, ], heatmap_ad[shared_genes, ])
+
+#annotate cell types
+annot_celltype <- HeatmapAnnotation(
+  celltype = c(svm_annotation_hc, svm_annotation_ad),
+  col = list(celltype = custom_colors)
+  )
+  
+#annotate genes of interest
+annot_genes <- HeatmapAnnotation(
+  GeneOfInterest = anno_mark(at = match(genes_to_anno, rownames(heatmap_hcad)),
+                             labels = genes_to_anno),
+  which = "row"
+  ) #show_annotation_name = T
+
+#K means with 7 groups
+heatmap_trajectory_ad <- draw(Heatmap(heatmap_hcad, right_annotation = annot_genes, top_annotation = annot_celltype, 
+                                      col = colorRamp2(c(min(heatmap_ad), 0, max(heatmap_ad)), c("blue", "lightyellow", "red")),
+                                      name = "z-score", 
+                                      km = 7, row_km_repeats = 1, row_dend_reorder = F, cluster_rows = T, clustering_method_rows = "single", cluster_row_slices = F, #clustering
+                                      row_title_rot = 0, show_row_names = F, show_column_names = F,
+                                      cluster_columns  = F))
+```
 
 
 
