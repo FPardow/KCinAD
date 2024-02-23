@@ -5,7 +5,7 @@ date: "2023-03-14"
 output: html_document
 ---
 
-```{r setup, include=FALSE}
+```{r setup, include = FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 
 hook_in <- function(x, options) {
@@ -46,8 +46,16 @@ set.seed(1234)
 # quick load
 knitr::opts_knit$set(root.dir ="C:/Users/spare/OneDrive - Radboudumc/Results/KCsinAD/FPcomp/KCinAD")
 roj_rds <-  readRDS("roj_rds.rds")
-# diffex_hc <- readRDS("diffex_hc.rds")
 # basal3_dake <-  readRDS("basal3_dake.rds")
+
+#colors
+colors_disease <- c("HC" = "#228B22", "AD" = "#FF6347") 
+
+colors_cellcycle <- c("G1" = "darkorange", "S" = "#66C2A5", "G2M" = "#FFD92F")
+
+colors_subtypes <- c("basal III" = "#8DA0CB", "basal II" = "#66C2A5", "basal I" = "#FFD92F", "basal IV" = "#A6D854", "stratum spinosum" = "#FC8D62", "stratum granulosum" = "#E78AC3")
+
+colors_subtypesBasIII <- c("basal III KRT15+" = "#6573A0", "basal III ASS1+" = "#B0B9E6", "basal II" = "#66C2A5", "basal I" = "#FFD92F", "basal IV" = "#A6D854", "stratum spinosum" = "#FC8D62", "stratum granulosum" = "#E78AC3")
 ```
 
 # Setting up the workstream
@@ -152,13 +160,6 @@ roj_rds@meta.data[["disease"]] <- factor(roj_rds@meta.data[["disease"]], levels 
 
 # Visualizations
 
-```{r colors}
-# colors <- brewer.pal(8, "Set2")
-custom_colors <- c("basal III" = "#8DA0CB", "basal II" = "#66C2A5", "basal I" = "#FFD92F", "basal IV" = "#A6D854", "stratum spinosum" = "#FC8D62", "stratum granulosum" = "#E78AC3")
-
-custom_colors_b3sub <- c("basal III KRT15+" = "#6573A0", "basal III ASS1+" = "#B0B9E6", "basal II" = "#66C2A5", "basal I" = "#FFD92F", "basal IV" = "#A6D854", "stratum spinosum" = "#FC8D62", "stratum granulosum" = "#E78AC3")
-```
-
 ```{r Visualization non-integrated}
 object = roj_rds
 ndims = 10
@@ -175,7 +176,7 @@ object <- RunUMAP(object, dims = 1:ndims, verbose = F)
 #visaualization samples + clusters
 DimPlot(object, group.by = "disease")
 DimPlot(object, group.by = "sample")
-DimPlot(object, group.by = "svm_annotation",  cols = custom_colors,  repel = T,  label = T,  label.box = T) + NoLegend()
+DimPlot(object, group.by = "svm_annotation",  cols = colors_subtypes,  repel = T,  label = T,  label.box = T) + NoLegend()
 
 #visualization genes of interest
 FeaturePlot(object, features = c("KRT5", "KRT14", "KRT1", "KRT10", "KRT15", "ASS1", "TP63"))
@@ -185,9 +186,9 @@ FeaturePlot(object, features = c('KRT15', "ASS1", "IGFBP3", "LGALS3BP", "PTEN", 
 
 ```{r Visualization dataset}
 Idents(roj_rds) <- roj_rds$svm_annotation
-DimPlot(roj_rds, cols = custom_colors,  repel = T,  label = T,  label.box = T) + NoLegend()
-# DimPlot(roj_rds[, roj_rds$disease == "HC"], cols = custom_colors,  repel = T,  label = T,  label.box = T) + NoLegend()
-# DimPlot(roj_rds[, roj_rds$disease == "AD"], cols = custom_colors,  repel = T,  label = T,  label.box = T) + NoLegend()
+DimPlot(roj_rds, cols = colors_subtypes,  repel = T,  label = T,  label.box = T) + NoLegend()
+# DimPlot(roj_rds[, roj_rds$disease == "HC"], cols = colors_subtypes,  repel = T,  label = T,  label.box = T) + NoLegend()
+# DimPlot(roj_rds[, roj_rds$disease == "AD"], cols = colors_subtypes,  repel = T,  label = T,  label.box = T) + NoLegend()
 
 DimPlot(roj_rds, group.by = "disease")
 DimPlot(roj_rds, group.by = "sample")
@@ -234,8 +235,8 @@ VlnPlot(roj_rds, group.by = "svm_annotation" , features = c("TP63"), split.by = 
 
 #visualizing basal III subtypes in UMAP
 Idents(roj_rds) <- "svm_added_anno"
-custom_colors_b3sub <- c("basal III KRT15+" = "#6573A0", "basal III ASS1+" = "#B0B9E6", "basal II" = "#66C2A5", "basal I" = "#FFD92F", "basal IV" = "#A6D854", "stratum spinosum" = "#FC8D62", "stratum granulosum" = "#E78AC3")
-DimPlot(roj_rds[, roj_rds$disease == "AD"], cols = custom_colors_b3sub, repel = T,  label = T,  label.box = T) + NoLegend()
+
+DimPlot(roj_rds[, roj_rds$disease == "AD"], cols = colors_subtypes_b3sub, repel = T,  label = T,  label.box = T) + NoLegend()
 
 #IVL, KRT16, S100A9, S100A8, KRT6A, KRT16 also possible
 FeaturePlot(roj_rds[, roj_rds$disease == "HC"], features = c('KRT15', "ASS1"))
@@ -260,9 +261,19 @@ VlnPlot(roj_rds, group.by = "svm_annotation", features = c("KLF5", "Akt1", "Akt3
 VlnPlot(roj_rds, group.by = "svm_annotation", features = c("AHR", "OVOL1", "ID1", "CEBPA"), split.by = "disease", stack = T, flip = T, pt.size = 0) + theme(axis.title.x = element_blank()) 
 
 FeaturePlot(roj_rds[, roj_rds$disease == "HC"], features = c('IGFBP3', "IFITM1"))
+
+FeaturePlot(roj_rds, features = c("KRT5", "KRT1", "FLG", "CA2"), split.by = "disease") & theme(legend.position = "right")
+
+VlnPlot(roj_rds, group.by = "svm_annotation", split.by = "disease", features = c("KRT5", "KRT14", "KRT1", "KRT10", "DSC1", "DSG1", "COL17A1", "ITGB1", "ITGA6", 'KRT15', "IVL", 'FLG', "LOR", 'KRT6A', 'KRT16', "S100A8", "S100A9", "CA2"), stack = T, flip = T, cols = colors_disease) + theme(axis.title.x = element_blank())
+
+VlnPlot(roj_rds, group.by = "svm_annotation", split.by = "disease", features = c("KRT15", "ASS1", "MCM3", "MKI67", "KRT14"), stack = T, flip = T, cols = colors_disease) + theme(axis.title.x = element_blank())
+
+VlnPlot(roj_rds, group.by = "svm_annotation", split.by = "disease", features = c("TP63"), flip = T, pt.size = 0, cols = colors_disease) + theme(axis.title.x = element_blank())
+
+VlnPlot(roj_rds, group.by = "svm_annotation", features = c("KLF4", "GATA3", "TAF10", "MAFB", "KRT10", "DSG1", "CLDN1", "SPRY1"), split.by = "disease", stack = T, flip = T, pt.size = 0, cols = colors_disease) + theme(axis.title.x = element_blank()) 
 ```
 
-```{r stacked barplot cell type percentage}
+```{r stacked barplot cell type percentage - HC vs AD}
 percentage_df = function(seurat_object, cell_annotation = "seurat_clusters",variable = "orig.ident",facet = F){
   #variable = which columns
   #Change ID
@@ -292,7 +303,7 @@ percentage_df = function(seurat_object, cell_annotation = "seurat_clusters",vari
   }
   #formatting
   df_percentages$percentage =  signif(df_percentages$percentage,3)
-  colnames(df_percentages) = c("Celltype"  ,  "Freq"    ,   "percentage","Variable"   )
+  colnames(df_percentages) = c("Celltype"  ,  "Freq"    ,   "percentage", "Variable"   )
   #readable labels
   df_percentages = df_percentages[df_percentages$Freq != 0,]
   
@@ -310,21 +321,94 @@ percentage_df = function(seurat_object, cell_annotation = "seurat_clusters",vari
   return(df_percentages)
 }
 
-cell_percentage  <- percentage_df(roj_rds,cell_annotation = "svm_annotation", variable = "disease", facet = F)
+cell_percentage  <- percentage_df(roj_rds, cell_annotation = "svm_annotation", variable = "disease", facet = F)
 #reorder: 
 cell_percentage$Celltype <- factor(cell_percentage$Celltype, levels = c("basal III", "basal II", "basal I", "basal IV", "stratum spinosum", "stratum granulosum"))
 # factor(percentage_df$Celltype)
 cell_percentage$Variable <- factor(cell_percentage$Variable, levels = c("HC", "AD")) 
 # factor(cell_percentage$Variable)
 
-custom_colors <- c("basal III" = "#8DA0CB", "basal II" = "#66C2A5", "basal I" = "#FFD92F", "basal IV" = "#A6D854", "stratum spinosum" = "#FC8D62", "stratum granulosum" = "#E78AC3")
+colors_subtypes <- c("basal III" = "#8DA0CB", "basal II" = "#66C2A5", "basal I" = "#FFD92F", "basal IV" = "#A6D854", "stratum spinosum" = "#FC8D62", "stratum granulosum" = "#E78AC3")
 
 ggplot(cell_percentage, aes(fill = Celltype, y = percentage, x = Variable)) + 
     geom_bar(position = "stack", stat = "identity") +
     theme_classic() +
     geom_text(aes(label = percentage), position = position_stack(vjust = 0.5), size = 3) + 
     theme(text = element_text(size = 10))+
-    scale_fill_manual(values = custom_colors)
+    scale_fill_manual(values = colors_subtypes)
+```
+
+```{r stacked barplot cell type percentage - per sample}
+percentage_df = function(seurat_object, cell_annotation = "seurat_clusters",variable = "orig.ident",facet = F){
+  #variable = which columns
+  #Change ID
+  seurat_object = seurat_object@meta.data
+  df_percentages = ""
+
+  #list of variables
+  my_vars = as.character(as.data.frame(table(seurat_object[[variable]]))[,1])
+  count = 0
+  #loop through each variable, add to dataframe
+  for(var_x in my_vars){
+    #Subset dataframe for specific variable
+    seurat_object_tmp = seurat_object[seurat_object[[variable]] == var_x,]
+    
+    percent_total = as.data.frame(table(seurat_object_tmp[[cell_annotation]]))#Add cell count
+    percent_total$Var1 = as.character(percent_total$Var1)#Change type factor -> character
+    percent_total["percentage"] = percent_total$Freq/sum(percent_total$Freq)*100 #Add percentage
+    percent_total["variable"] = var_x #add variable
+    if(count == 0){
+    df_percentages = percent_total #create new df for first
+    }else{
+    df_percentages[(nrow(df_percentages)+1):(nrow(df_percentages)+nrow(percent_total)),] = percent_total
+    
+    }
+  count = count + 1
+
+  }
+  #formatting
+  df_percentages$percentage =  signif(df_percentages$percentage,3)
+  colnames(df_percentages) = c("Celltype"  ,  "Freq"    ,   "percentage", "Variable"   )
+  #readable labels
+  df_percentages = df_percentages[df_percentages$Freq != 0,]
+  
+  if(facet){
+    df_percentages$con = df_percentages$Variable
+    list_m_a = strsplit(df_percentages$Variable,"_")
+    for(p in 1:length(list_m_a)){
+      var = paste0(list_m_a[[p]][1], list_m_a[[p]][2])
+      df_percentages$con[p] = var
+    }
+    df_percentages$sample = df_percentages$Variable
+  }
+  df_percentages$ann = df_percentages$percentage
+  df_percentages$ann[df_percentages$ann < 1] = "" #remove labels of small fractions
+  return(df_percentages)
+}
+
+cell_percentage  <- percentage_df(roj_rds, cell_annotation = "svm_annotation", variable = "sample", facet = F)
+cell_percentage$disease[cell_percentage$Variable %in% c("HC6", "HC7")] <- c("HC")
+cell_percentage$disease[cell_percentage$Variable %in% c("AD5", "AD6", "AD7", "AD8")] <- c("AD")
+
+#reorder: 
+cell_percentage$Celltype <- factor(cell_percentage$Celltype, levels = c("basal III", "basal II", "basal I", "basal IV", "stratum spinosum", "stratum granulosum"))
+# factor(percentage_df$Celltype)
+cell_percentage$Variable <- factor(cell_percentage$Variable, levels = c("HC6", "HC7", "AD5", "AD6", "AD7", "AD8")) 
+factor(cell_percentage$Variable)
+
+ggplot(cell_percentage, aes(fill = Celltype, y = percentage, x = Variable)) + 
+    geom_bar(position = "stack", stat = "identity") +
+    theme_classic() +
+    geom_text(aes(label = percentage), position = position_stack(vjust = 0.5), size = 3) + 
+    theme(text = element_text(size = 10))+
+    scale_fill_manual(values = colors_subtypes)
+
+t_basalIII <- t.test(c(33.2, 22.6), c(33.8, 56.6, 47.1, 37.7), data = cell_percentage, var.equal = TRUE)
+t_basalII <- t.test(c(6.39,	5.19), c(3.59,	3.1,	3.22,	3.63), data = cell_percentage, var.equal = TRUE)
+t_basalI <- t.test(c(9.06,	5.62), c(10.8,	6.4,	5.36,	8.99), data = cell_percentage, var.equal = TRUE)
+t_basalIV <- t.test(c(5.33,	5.94), c(25.4,	20,	31,	38.8), data = cell_percentage, var.equal = TRUE)
+t_spinosum <- t.test(c(33.6,	51.9), c(14.5,	9.3,	11.5,	6.12), data = cell_percentage, var.equal = TRUE)
+t_granulosum <- t.test(c(12.4,	8.75), c(11.9,	4.55,	1.88,	4.78), data = cell_percentage, var.equal = TRUE)
 ```
 
 # Differential expression analysis
@@ -541,8 +625,7 @@ roj_rds <- CellCycleScoring(roj_rds, s.features = cc.genes.updated.2019$s.genes,
 
 # head(roj_rds@meta.data)
 Idents(roj_rds) <- "Phase"
-custom_colors <- c("G1" = "darkorange", "S" = "#66C2A5", "G2M" = "#FFD92F")
-DimPlot(roj_rds, group.by = "Phase", cols = custom_colors, order = c("G2M", "S", "G1"))
+DimPlot(roj_rds, group.by = "Phase", cols = colors_cellcycle, order = c("G2M", "S", "G1"))
 
 # RidgePlot(roj_rds, features = c("S.Score", "G2M.Score"), ncol = 2, group.by = "svm_annotation")
 
@@ -607,7 +690,7 @@ ggplot(phase_percentage, aes(fill = Celltype, y = percentage, x = Variable)) +
     theme_classic() +
     geom_text(aes(label = percentage), position = position_stack(vjust = 0.5), size = 3) + 
     theme(text = element_text(size = 10), axis.title.x = element_blank()) +
-    scale_fill_manual(values = custom_colors)
+    scale_fill_manual(values = colors_cellcycle)
 
 #AD
 phase_percentage  <- percentage_df(roj_rds[, roj_rds$disease == "AD"], cell_annotation = "Phase", variable = "svm_annotation", facet = F)
@@ -623,7 +706,7 @@ ggplot(phase_percentage, aes(fill = Celltype, y = percentage, x = Variable)) +
     theme_classic() +
     geom_text(aes(label = percentage), position = position_stack(vjust = 0.5), size = 3) + 
     theme(text = element_text(size = 10), axis.title.x = element_blank()) +
-    scale_fill_manual(values = custom_colors)
+    scale_fill_manual(values = colors_cellcycle)
 ```
 
 # Functional analysis basal cell types HC
@@ -2260,19 +2343,17 @@ Running Slingshot -> I get a different trajectory than Ward but he said it is co
 
 ```{r slingshot all together}
 # object_sce <- as.SingleCellExperiment(object, assay = "RNA") #Seurat to SCE
-# custom_colors <- c("basal III" = "#8DA0CB", "basal II" = "#66C2A5", "basal I" = "#FFD92F", "basal IV" = "#A6D854", "stratum spinosum" = "#FC8D62", "stratum granulosum" = "#E78AC3")
+
 # 
 # # object_sce <- slingshot(object_sce, clusterLabels = 'svm_annotation', reducedDim = 'UMAP')
 # object_sce <- slingshot(object_sce, clusterLabels = 'svm_annotation', reducedDim = 'UMAP', start.clus = "basal III", end.clus = "stratum granulosum") #strong recommendation to specify a starting cluster
 #  
 #Plot pseudotime on UMAP
-# plot(reducedDims(object_sce)$UMAP, col = custom_colors[as.factor(object_sce$svm_annotation)], pch = 16,  asp = 0.5)
+# plot(reducedDims(object_sce)$UMAP, col = colors_subtypes[as.factor(object_sce$svm_annotation)], pch = 16,  asp = 0.5)
 # lines(SlingshotDataSet(object_sce), lwd = 4)
 ```
 
 ```{r slingshot healthy}
-custom_colors <- c("basal III" = "#8DA0CB", "basal II" = "#66C2A5", "basal I" = "#FFD92F", "basal IV" = "#A6D854", "stratum spinosum" = "#FC8D62", "stratum granulosum" = "#E78AC3")
-
 if(exists("object$slingPseudotime")){
 object$slingPseudotime_1 <- NULL
 object$slingPseudotime_2 <- NULL
@@ -2292,7 +2373,7 @@ object_hc_sce$slingPseudotime_2 <- NULL
 object_hc_sce <- slingshot(object_hc_sce, clusterLabels = 'svm_annotation', reducedDim = 'UMAP', start.clus = "basal III", end.clus = "stratum granulosum") #strong recommendation to specify a starting cluster
 
 #Plot pseudotime on UMAP
-plot(reducedDims(object_hc_sce)$UMAP, col = custom_colors[as.factor(object_hc_sce$svm_annotation)], pch = 16,  asp = 0.5)
+plot(reducedDims(object_hc_sce)$UMAP, col = colors_subtypes[as.factor(object_hc_sce$svm_annotation)], pch = 16,  asp = 0.5)
 lines(SlingshotDataSet(object_hc_sce), lwd = 4)
 
 #plot pseudotime 1
@@ -2302,13 +2383,11 @@ dat <- dat[!is.na(dat$slingPseudotime_1), ]
 
 ggplot(dat, aes(x = svm_annotation, y = slingPseudotime_1, fill = svm_annotation, color = svm_annotation)) +
     geom_dotplot(binwidth = 0.3, stackdir = "centerwhole", binaxis = "y", stackratio = 0.1) + coord_flip() + theme_classic() + ggtitle("HC") + labs(x = NULL, y = NULL) +
-    scale_fill_manual(values = custom_colors) + scale_y_continuous(breaks = c(0, 5, 10, 15, 20, 25)) +
-    scale_color_manual(values = custom_colors) + theme(legend.position = "none") 
+    scale_fill_manual(values = colors_subtypes) + scale_y_continuous(breaks = c(0, 5, 10, 15, 20, 25)) +
+    scale_color_manual(values = colors_subtypes) + theme(legend.position = "none") 
 ```
 
 ```{r slingshot AD}
-# ndims <- 10
-custom_colors <- c("basal III" = "#8DA0CB", "basal II" = "#66C2A5", "basal I" = "#FFD92F", "basal IV" = "#A6D854", "stratum spinosum" = "#FC8D62", "stratum granulosum" = "#E78AC3")
 
 if(exists("object$slingPseudotime")){
 object$slingPseudotime_1 <- NULL
@@ -2329,7 +2408,7 @@ object_ad_sce <- slingshot(object_ad_sce, reducedDim = 'UMAP') #left out the clu
 # object_ad_sce <- slingshot(object_ad_sce, clusterLabels = 'svm_annotation', reducedDim = 'UMAP', start.clus = "basal III", end.clus = "stratum granulosum")
 
 #Plot pseudotime on UMAP
-plot(reducedDims(object_ad_sce)$UMAP, col = custom_colors[as.factor(object_ad_sce$svm_annotation)], pch = 16,  asp = 0.5)
+plot(reducedDims(object_ad_sce)$UMAP, col = colors_subtypes[as.factor(object_ad_sce$svm_annotation)], pch = 16,  asp = 0.5)
 lines(SlingshotDataSet(object_ad_sce), lwd = 4)
 
 #plot pseudotime 1
@@ -2340,7 +2419,7 @@ dat$slingPseudotime_1_mod <- max(dat$slingPseudotime_1) - dat$slingPseudotime_1
 
 ggplot(dat, aes(x = svm_annotation, y = slingPseudotime_1_mod, fill = svm_annotation, color = svm_annotation)) +
     geom_dotplot(binwidth = 0.3, stackdir = "centerwhole", binaxis = "y", stackratio = 0.1) + coord_flip() + theme_classic() +
-    scale_fill_manual(values = custom_colors) + scale_color_manual(values = custom_colors) +
+    scale_fill_manual(values = colors_subtypes) + scale_color_manual(values = colors_subtypes) +
     ggtitle("AD") + labs(x = NULL, y = NULL) + theme(legend.position = "none")
 ```
 
@@ -2375,11 +2454,11 @@ FeaturePlot(roj_rds_ad,features = c("slingPseudotime_1_mod")) + ggtitle("AD pseu
 
 # roj_hc_sce <- as.SingleCellExperiment(roj_rds_hc, assay = "RNA")
 # test <- SlingshotDataSet(object_hc_sce)
-# plot(reducedDims(roj_hc_sce)$UMAP, col = custom_colors[as.factor(roj_hc_sce$svm_annotation)], pch = 16,  asp = 0.5)
+# plot(reducedDims(roj_hc_sce)$UMAP, col = colors_subtypes[as.factor(roj_hc_sce$svm_annotation)], pch = 16,  asp = 0.5)
 # lines(test, lwd = 4)
 # 
 # roj_ad_sce <- as.SingleCellExperiment(roj_rds_ad, assay = "RNA")
-# plot(reducedDims(roj_ad_sce)$UMAP, col = custom_colors[as.factor(roj_ad_sce$svm_annotation)], pch = 16,  asp = 0.5)
+# plot(reducedDims(roj_ad_sce)$UMAP, col = colors_subtypes[as.factor(roj_ad_sce$svm_annotation)], pch = 16,  asp = 0.5)
 # lines(SlingshotDataSet(roj_ad_sce), lwd = 4)
 
 #print(x1+x2|x3+x4) #nice way of reordering plots when printing
@@ -2397,8 +2476,6 @@ roj_rds$slingPseudotime_1 <- NULL
 roj_rds$slingPseudotime_2 <- NULL
 }
 
-custom_colors <- c("basal III" = "#8DA0CB", "basal II" = "#66C2A5", "basal I" = "#FFD92F", "basal IV" = "#A6D854", "stratum spinosum" = "#FC8D62", "stratum granulosum" = "#E78AC3")
-
 #perform slingshot with the sce object
 roj_rds_sce <- as.SingleCellExperiment(roj_rds, assay = "RNA") 
 
@@ -2407,16 +2484,16 @@ roj_rds_sce <- as.SingleCellExperiment(roj_rds, assay = "RNA")
 roj_rds_sce <- slingshot(roj_rds_sce, reducedDim = 'UMAP') #just 1 trajectory
 
 #Plot pseudotime on UMAP
-plot(reducedDims(roj_rds_sce)$UMAP, col = custom_colors[as.factor(roj_rds_sce$svm_annotation)], pch = 16,  asp = 1)
+plot(reducedDims(roj_rds_sce)$UMAP, col = colors_subtypes[as.factor(roj_rds_sce$svm_annotation)], pch = 16,  asp = 1)
 lines(SlingshotDataSet(roj_rds_sce), lwd = 4)
 
 # plotGeneCount(curve = SlingshotDataSet(roj_rds_sce), clusters = roj_rds_sce$svm_annotation) # other command for drawing trajectory on UMAP
+
+#transfer trajectories back to the seurat object
+roj_rds$slingPseudotime_1 <- roj_rds_sce$slingPseudotime_1
 ```
 
 ```{r visualize HC and AD on UMAP}
-#transfer trajectories back to the seurat object
-roj_rds$slingPseudotime_1 <- roj_rds_sce$slingPseudotime_1
-
 #visualize trajectories in HC and AC
 roj_rds_hc <- subset(roj_rds, disease == "HC")
 roj_rds_ad <- subset(roj_rds, disease == "AD")
@@ -2437,7 +2514,7 @@ dat <- dat[!is.na(dat$slingPseudotime_1), ]
 
 ggplot(dat, aes(x = svm_annotation, y = slingPseudotime_1, fill = svm_annotation, color = svm_annotation)) +
     geom_dotplot(binwidth = 0.3, stackdir = "centerwhole", binaxis = "y", stackratio = 0.1) + coord_flip() + theme_classic() +
-    scale_fill_manual(values = custom_colors) + scale_color_manual(values = custom_colors) +
+    scale_fill_manual(values = colors_subtypes) + scale_color_manual(values = colors_subtypes) +
     ggtitle("HC") + labs(x = NULL, y = NULL) + theme(legend.position = "none")
 
 #plot pseudotime 1 AD
@@ -2447,10 +2524,9 @@ dat <- dat[!is.na(dat$slingPseudotime_1), ]
 
 ggplot(dat, aes(x = svm_annotation, y = slingPseudotime_1, fill = svm_annotation, color = svm_annotation)) +
     geom_dotplot(binwidth = 0.3, stackdir = "centerwhole", binaxis = "y", stackratio = 0.1) + coord_flip() + theme_classic() +
-    scale_fill_manual(values = custom_colors) + scale_color_manual(values = custom_colors) +
+    scale_fill_manual(values = colors_subtypes) + scale_color_manual(values = colors_subtypes) +
     ggtitle("AD") + labs(x = NULL, y = NULL) + theme(legend.position = "none")
 ```
-
 
 ## Perform differential gene expression analysis along the pseudotime trajectory
 
@@ -2498,29 +2574,31 @@ Now we use a negative binomial general additive model to infer the smoothed gene
 ```
 
 ```{r calculate NB-GAM}
-# setwd("C:/Users/spare/OneDrive - Radboudumc/Results/KCsinAD/FPcomp/KCinAD")
-# roj_rds_sce_gam <- readRDS("roj_rds_sce_gam_counts_9knots_varfeaturesONLY.rds")
-
-roj_rds <- FindVariableFeatures(roj_rds)
-
-#figure out how many cores can be used 
-BPPARAM <- BiocParallel::bpparam() # bpnworkers = number of cores
-BPPARAM$workers <- 6 #use 6 cores, that's also the default
-
-#calculating a negative binomial generalized additive model to interfere gene expression along the (slingshot calculated) trajectory 
-set.seed(123)
-roj_rds_sce_gam <- fitGAM(counts = as.matrix(roj_rds_hc@assays$RNA@counts), sds = SlingshotDataSet(roj_rds_sce), nknots = 9, parallel = T, genes = roj_rds@assays$RNA@var.features) #genes to fit, default = all
-#genes = intersect(roj_rds@assays$RNA@var.features, rownames(gene_expr[gene_expr$color == "yes", ]))
-# roj_rds_sce@assays@data$counts
-
-# summary(roj_rds_sce_gam[["KRT6"]])
+setwd("C:/Users/spare/OneDrive - Radboudumc/Results/KCsinAD/FPcomp/KCinAD")
+roj_rds_sce_gam <- readRDS("roj_rds_sce_gam_counts_9knots_varfeaturesONLY.rds")
+diffex_trajectory <- readRDS("diffex_trajectory_counts_9knots_varfeaturesONLY.rds")
+  
+# roj_rds <- FindVariableFeatures(roj_rds)
+# 
+# #figure out how many cores can be used 
+# BPPARAM <- BiocParallel::bpparam() # bpnworkers = number of cores
+# BPPARAM$workers <- 6 #use 6 cores, that's also the default
+# 
+# #calculating a negative binomial generalized additive model to interfere gene expression along the (slingshot calculated) trajectory 
+# set.seed(123)
+# roj_rds_sce_gam <- fitGAM(counts = as.matrix(roj_rds_hc@assays$RNA@counts), sds = SlingshotDataSet(roj_rds_sce), nknots = 9, parallel = T, genes = roj_rds@assays$RNA@var.features) #genes to fit, default = all
+# #genes = intersect(roj_rds@assays$RNA@var.features, rownames(gene_expr[gene_expr$color == "yes", ]))
+# # roj_rds_sce@assays@data$counts
+# 
+# # summary(roj_rds_sce_gam[["KRT6"]])
 
 #statistical test to check if gene expression changes across trajectory
-diffex_trajectory <- associationTest(roj_rds_sce_gam) #lineages = T -> test for all lineages independently, needed if you have several lineages
-diffex_trajectory$gene <- rownames(diffex_trajectory)
+# diffex_trajectory <- associationTest(roj_rds_sce_gam) #lineages = T -> test for all lineages independently, needed if you have several lineages
+# diffex_trajectory$gene <- rownames(diffex_trajectory)
 
 # setwd("C:/Users/spare/OneDrive - Radboudumc/Results/KCsinAD/FPcomp/KCinAD")
 # saveRDS(roj_rds_sce_gam, "roj_rds_sce_gam_counts_9knots_varfeaturesONLY.rds")
+# saveRDS(diffex_trajectory, file = "diffex_trajectory_counts_9knots_varfeaturesONLY.rds")
 # write.xlsx(diffex_trajectory, file = "diffex_trajectory_counts_9knots_varfeaturesONLY.xlsx")
 ```
 
@@ -2529,21 +2607,12 @@ Now we draw a heatmap to visualize gene expression across the trajectory. We use
 ```{r heatmap settings}
 library(ComplexHeatmap)
 
-pseudotime_genes <- diffex_trajectory[diffex_trajectory$pvalue_1 < 0.05 & !is.na(diffex_trajectory$pvalue_1), ]
+pseudotime_genes <- diffex_trajectory[diffex_trajectory$pvalue < 0.05 & !is.na(diffex_trajectory$pvalue), ]
 # pseudotime_genes <- intersect(diffex_trajectory2$gene, rownames(gene_expr[gene_expr$highly_expressed == "yes", ]))
 
 genes_to_anno <- c("KRT5", "KRT14", "KRT15", "ASS1", "MCM3", "MKI67", "AHR", "TFAP2A", "OVOL1", "GRHL3", "TP63", "ZNF750", "ATF3", "KRT1", "KRT10", "KRT6", "KRT16", "FLG", "IVL") #genes to annotate
 heatmap_genes <- c(pseudotime_genes$gene, genes_to_anno)
-
-custom_colors <- c("basal III" = "#8DA0CB", "basal II" = "#66C2A5", "basal I" = "#FFD92F", "basal IV" = "#A6D854", "stratum spinosum" = "#FC8D62", "stratum granulosum" = "#E78AC3")
 ```
-
-
-
-
-#later: put tree height cluster_rows to F / 0
-#work on adjusting clustering
-#extract genes 
 
 First in healthy epidermis
 
@@ -2570,7 +2639,7 @@ heatmap_hc <- as.data.frame(heatmap_hc) #otherwise the combining with heatmap_hc
 svm_annotation_hc <- pseudtime_cells[order(pseudtime_cells$slingPseudotime_1), ]$svm_annotation
 svm_annotation_hc <- svm_annotation_hc[50 : (ncol(heatmap_hc) + 49)] #centered rolling mean -> first 50 cells don't have a direct output 
 
-annot_celltype_hc <- HeatmapAnnotation(celltype = svm_annotation_hc, col = list(celltype = custom_colors))
+annot_celltype_hc <- HeatmapAnnotation(celltype = svm_annotation_hc, col = list(celltype = colors_subtypes))
 
 #annotate genes of interest
 annot_genes <- HeatmapAnnotation(
@@ -2586,79 +2655,6 @@ heatmap_trajectory_hc <- draw(Heatmap(heatmap_hc, right_annotation = annot_genes
                                       km = 7, row_km_repeats = 1, row_dend_reorder = F, cluster_rows = T, clustering_method_rows = "single", cluster_row_slices = F, #clustering
                                       row_title_rot = 0, show_row_names = F, show_column_names = F,
                                       cluster_columns  = F))
-```
-
-```{r explore clustering}
-clust_dist <- c("euclidean", "maximum", "manhattan", "canberra", "minkowski", "pearson", "spearman", "kendall", "binary") 
-clust_methods <- c("ward.D", "ward.D2",  "centroid", "complete", "average", "mcquitty", "median", "single") 
-heatmap_all_compare <- vector(mode = "list") #creates a list, a list can have different elements as vectors, matrixes, other lists
-
-library(ggplotify)
-
-for (method in clust_dist){
-  heatmap_all_compare[[method]] <- as.ggplot(
-    Heatmap(heatmap_hc, right_annotation = annot_genes, top_annotation = annot_celltype_hc,
-            col = colorRamp2(c(min(heatmap_hc), 0, max(heatmap_hc)), c("blue", "lightyellow", "red")),
-            name = "z-score", clustering_distance_rows = method, 
-            row_dend_reorder = F, cluster_rows = T,
-            clustering_method_rows = "single", cluster_row_slices = F,
-            row_title_rot = 0, show_row_names = F, show_column_names = F, cluster_columns  = F)
-                                             )
-}
-
-clustering_method_rows = "complete",
-km = 7, row_km_repeats = 1, 
-
-setwd("C:/Users/spare/OneDrive - Radboudumc/Results/KCsinAD/FPcomp/KCinAD")
-pdf("Heatmap_HC_clusteringDistance.pdf", height = 8, width = 12)
-plot_grid(plotlist = heatmap_all_compare) #another way of multiplotting
-dev.off()
-```
-
-
-```{r extract genes}
-summary(row_order(heatmap_trajectory_hc))
-
-
-orders <- row_order(heatmap_trajectory_hc)
-genelist <- rownames(heatmap_df)
-genelistdf <- as.data.frame(genelist)
-genelistdf["cluster"] = ""
-for (x in as.character(1:7)) {
-  tmplist = orders[x]
-  genelist2 = genelist[tmplist[[1]]]
-  genelistdf[genelist2, ] = paste("cluster", x)
-}
-
-genelistdf <- genelistdf[genelistdf$cluster != "", ]
-genelistdf$cluster <- NULL
-genelistdf$gene <- rownames(genelistdf)
-
-
-h1 <- row.names(heatmap_hc)[row_order(heatmap_trajectory_hc)[[1]]] #k means: $`1`, split: [[1]]
-h2 <- row.names(z_limma)[row_order(pearson14)[[2]]]
-h3 <- row.names(z_limma)[row_order(pearson14)[[3]]]
-h4 <- row.names(z_limma)[row_order(pearson14)[[4]]]
-h5 <- row.names(z_limma)[row_order(pearson14)[[5]]]
-h6 <- row.names(z_limma)[row_order(pearson14)[[6]]]
-h7 <- row.names(z_limma)[row_order(pearson14)[[7]]]
-h8 <- row.names(z_limma)[row_order(pearson14)[[8]]]
-h9 <- row.names(z_limma)[row_order(pearson14)[[9]]]
-h10 <- row.names(z_limma)[row_order(pearson14)[[10]]]
-h11 <- row.names(z_limma)[row_order(pearson14)[[11]]]
-h12 <- row.names(z_limma)[row_order(pearson14)[[12]]]
-h13 <- row.names(z_limma)[row_order(pearson14)[[13]]]
-h14 <- row.names(z_limma)[row_order(pearson14)[[14]]]
-
-c1 <- c(h7, h8)
-c2 <- c(h9, h10, h11, h12, h13, h14)
-c21 <- c(h9, h10)
-c22 <- c(h12, h13, h14)
-c23 <- c(h11)
-c3 <- c(h1, h2, h3, h4, h5, h6)
-c31 <- c(h4, h5, h6)
-c32 <- c(h2, h3)
-c33 <- c(h1)
 ```
 
 And now in AD epidermis
@@ -2686,7 +2682,7 @@ heatmap_ad <- as.data.frame(heatmap_ad) #otherwise the combining with heatmap_hc
 svm_annotation_ad <- pseudtime_cells[order(pseudtime_cells$slingPseudotime_1), ]$svm_annotation
 svm_annotation_ad <- svm_annotation_ad[50 : (ncol(heatmap_ad) + 49)] #centered rolling mean -> first 50 cells don't have a direct output 
 
-annot_celltype <- HeatmapAnnotation(celltype = svm_annotation_ad, col = list(celltype = custom_colors))
+annot_celltype_ad <- HeatmapAnnotation(celltype = svm_annotation_ad, col = list(celltype = colors_subtypes))
 
 #annotate genes of interest
 annot_genes <- HeatmapAnnotation(
@@ -2696,7 +2692,7 @@ annot_genes <- HeatmapAnnotation(
   ) #show_annotation_name = T
  
 #K means with 7 groups
-heatmap_trajectory_ad <- draw(Heatmap(heatmap_ad, right_annotation = annot_genes, top_annotation = annot_celltype,
+heatmap_trajectory_ad <- draw(Heatmap(heatmap_ad, right_annotation = annot_genes, top_annotation = annot_celltype_ad,
                                       col = colorRamp2(c(min(heatmap_ad), 0, max(heatmap_ad)), c("blue", "lightyellow", "red")),
                                       name = "z-score", 
                                       km = 7, row_km_repeats = 1, row_dend_reorder = F, cluster_rows = T, clustering_method_rows = "single", cluster_row_slices = F, #clustering
@@ -2712,9 +2708,9 @@ shared_genes <- intersect(rownames(heatmap_hc), rownames(heatmap_ad)) #only use 
 heatmap_hcad <- cbind(heatmap_hc[shared_genes, ], heatmap_ad[shared_genes, ])
 
 #annotate cell types
-annot_celltype <- HeatmapAnnotation(
+annot_celltype_hcad <- HeatmapAnnotation(
   celltype = c(svm_annotation_hc, svm_annotation_ad),
-  col = list(celltype = custom_colors)
+  col = list(celltype = colors_subtypes)
   )
   
 #annotate genes of interest
@@ -2725,15 +2721,245 @@ annot_genes <- HeatmapAnnotation(
   ) #show_annotation_name = T
 
 #K means with 7 groups
-heatmap_trajectory_ad <- draw(Heatmap(heatmap_hcad, right_annotation = annot_genes, top_annotation = annot_celltype, 
+heatmap_trajectory_hcad <- draw(Heatmap(heatmap_hcad, right_annotation = annot_genes, top_annotation = annot_celltype_hcad, 
                                       col = colorRamp2(c(min(heatmap_ad), 0, max(heatmap_ad)), c("blue", "lightyellow", "red")),
                                       name = "z-score", 
                                       km = 7, row_km_repeats = 1, row_dend_reorder = F, cluster_rows = T, clustering_method_rows = "single", cluster_row_slices = F, #clustering
                                       row_title_rot = 0, show_row_names = F, show_column_names = F,
-                                      cluster_columns  = F))
+                                      cluster_columns  = F)) 
 ```
 
+```{r new heatmap without cell cycle}
+summary(row_order(heatmap_trajectory_hcad))
 
+c1 <- heatmap_hcad[row_order(heatmap_trajectory_hcad)[[1]], ]
+c2 <- heatmap_hcad[row_order(heatmap_trajectory_hcad)[[2]], ]
+c4 <- heatmap_hcad[row_order(heatmap_trajectory_hcad)[[4]], ]
+c7 <- heatmap_hcad[row_order(heatmap_trajectory_hcad)[[7]], ] #k means: $`1`, split: [[1]]
+
+heatmap_hcad_late <- rbind(c1, c2) 
+heatmap_hcad_early <- rbind(c4, c7) 
+
+c7_GO <- enrichGO(gene = c7, OrgDb = org.Hs.eg.db, universe = row.names(roj_rds@assays$RNA@counts), keyType = 'SYMBOL', ont = "ALL", readable = T)
+
+c7_GOdf <- as.data.frame(c7_GO)
+
+c4_GO <- enrichGO(gene = c4, OrgDb = org.Hs.eg.db, universe = row.names(roj_rds@assays$RNA@counts), keyType = 'SYMBOL', ont = "ALL", readable = T)
+
+c4_GOdf <- as.data.frame(c4_GO)
+View(c4_GOdf)
+
+#heatmaps  for early / late trajectory genes
+setwd("C:/Users/spare/OneDrive - Radboudumc/Results/KCsinAD/FPcomp/KCinAD")
+heatmap_trajectory_hcad_early_k5 <- readRDS("heatmap_trajectory_hcad_early_k5.rds")
+
+# heatmap_trajectory_hcad_early_k5 <- draw(
+#   Heatmap(heatmap_hcad_early, top_annotation = annot_celltype_hcad,
+#           col = colorRamp2(c(min(heatmap_ad), 0, max(heatmap_ad)), c("blue", "lightyellow", "red")),
+#           name = "z-score", k = 5, row_km_repeats = 1, cluster_columns  = F,
+#           row_dend_reorder = F, cluster_rows = T, cluster_row_slices = F, 
+#           row_title_rot = 0, show_row_names = F, show_column_names = F)
+#   ) 
+# 
+# setwd("C:/Users/spare/OneDrive - Radboudumc/Results/KCsinAD/FPcomp/KCinAD")
+# saveRDS(object = heatmap_trajectory_hcad_early_k5, file = "heatmap_trajectory_hcad_early_k5_6.rds")
+
+heatmap_trajectory_hcad_late <- draw(Heatmap(heatmap_hcad_late, top_annotation = annot_celltype_hcad,
+                                      col = colorRamp2(c(min(heatmap_ad), 0, max(heatmap_ad)), c("blue", "lightyellow", "red")),
+                                      name = "z-score", km = 3, row_km_repeats = 3, 
+                                      row_dend_reorder = F, cluster_rows = T, clustering_method_rows = "single", cluster_row_slices = F, 
+                                      row_title_rot = 0, show_row_names = F, show_column_names = F,
+                                      cluster_columns  = F)) 
+
+genes_to_anno_hcearly <- c("KRT15", "ASS1")
+
+#annotate genes of interest
+annot_genes_hcearly <- HeatmapAnnotation(
+  GeneOfInterest = anno_mark(at = match(genes_to_anno_hcearly, rownames(heatmap_hcad_early)),
+                             labels = genes_to_anno_hcearly),
+  which = "row"
+  ) #show_annotation_name = T
+
+heatmap_trajectory_hcad_early_k5 + annot_genes_hcearly
+```
+
+```{r optimize clustering heatmap hcad early}
+clust_dist <- c("euclidean", "maximum", "manhattan", "canberra", "minkowski", "pearson", "spearman", "kendall", "binary") 
+clust_methods <- c("ward.D","ward.D2",  "centroid", "complete", "average", "mcquitty", "median", "single") 
+kmeans <- c(1, 2, 3, 4, 5, 6)
+heatmap_all_compare <- vector(mode = "list") #creates a list, a list can have different elements as vectors, matrixes, other lists
+
+library(ggplotify)
+
+#annotate cell types -> hiding legend here
+annot_celltype_hcad <- HeatmapAnnotation(
+  celltype = c(svm_annotation_hc, svm_annotation_ad),
+  col = list(celltype = colors_subtypes),
+  show_legend = FALSE
+  )
+
+####clustering distance####
+for (method in clust_dist){
+  print(method)
+  heatmap_all_compare[[method]] <- ggplotify::as.ggplot(
+         Heatmap(heatmap_hcad_early, right_annotation = annot_genes, top_annotation = annot_celltype_hcad, 
+                                      col = colorRamp2(c(min(heatmap_ad), 0, max(heatmap_ad)), c("blue", "lightyellow", "red")),
+                                      name = "z-score", clustering_distance_rows = method, clustering_method_rows = "single", 
+                                      row_dend_reorder = F, cluster_rows = T,  cluster_row_slices = F, 
+                                      row_title_rot = 0, show_row_names = F, show_column_names = F,
+                                      cluster_columns  = F, show_heatmap_legend = FALSE)
+  )
+}
+  
+# clustering_method_rows = "complete",
+# km = 7, row_km_repeats = 1, 
+
+setwd("C:/Users/spare/OneDrive - Radboudumc/Results/KCsinAD/FPcomp/KCinAD")
+pdf("Heatmap_HCAD_early_clusteringDistance.pdf", height = 8, width = 12)
+cowplot::plot_grid(plotlist = heatmap_all_compare) #another way of multiplotting
+dev.off()  
+
+####clustering method####
+for (method in clust_methods){
+  print(method)
+   heatmap_all_compare[[method]] <- as.ggplot(
+     Heatmap(heatmap_hcad_early, right_annotation = annot_genes, top_annotation = annot_celltype_hcad, 
+                                      col = colorRamp2(c(min(heatmap_ad), 0, max(heatmap_ad)), c("blue", "lightyellow", "red")),
+                                      name = "z-score", clustering_distance_rows = "XXXX", clustering_method_rows = method, 
+                                      row_dend_reorder = F, cluster_rows = T,  cluster_row_slices = F,  
+                                      row_title_rot = 0, show_row_names = F, show_column_names = F,
+                                      cluster_columns  = F, show_heatmap_legend = FALSE)
+  )
+}
+
+setwd("C:/Users/spare/OneDrive - Radboudumc/Results/KCsinAD/FPcomp/KCinAD")
+pdf("Heatmap_HCAD_early_clusteringMethod.pdf", height = 8, width = 12)
+cowplot::plot_grid(plotlist = heatmap_all_compare) #another way of multiplotting
+dev.off()
+
+####k means####
+for (k in kmeans){
+    print(k)
+   heatmap_all_compare[[k]] <- as.ggplot(
+     Heatmap(heatmap_hcad_early, right_annotation = annot_genes, top_annotation = annot_celltype_hcad, 
+                                      col = colorRamp2(c(min(heatmap_ad), 0, max(heatmap_ad)), c("blue", "lightyellow", "red")),
+                                      name = "z-score", km = k, row_km_repeats = 4, show_heatmap_legend = FALSE,
+                                      row_dend_reorder = F, cluster_rows = T,  cluster_row_slices = F, 
+                                      row_title_rot = 0, show_row_names = F, show_column_names = F,
+                                      cluster_columns  = F)
+  )
+}
+
+setwd("C:/Users/spare/OneDrive - Radboudumc/Results/KCsinAD/FPcomp/KCinAD")
+pdf("Heatmap_HCAD_early_kmeans1.pdf", height = 8, width = 12)
+cowplot::plot_grid(plotlist = heatmap_all_compare) 
+dev.off()
+```
+
+```{r optimize clustering heatmap hcad late}
+clust_dist <- c("euclidean", "maximum", "manhattan", "canberra", "minkowski", "pearson", "spearman", "binary") 
+clust_methods <- c("ward.D","ward.D2",  "centroid", "complete", "average", "mcquitty", "median", "single") 
+kmeans <- c(1, 2, 3, 4, 5, 6)
+heatmap_all_compare <- vector(mode = "list") #creates a list, a list can have different elements as vectors, matrixes, other lists
+
+library(ggplotify)
+
+####clustering distance####
+for (method in clust_dist){
+  print(method)
+  heatmap_all_compare[[method]] <- ggplotify::as.ggplot(
+         Heatmap(heatmap_hcad_late, right_annotation = annot_genes, top_annotation = annot_celltype_hcad, 
+                                      col = colorRamp2(c(min(heatmap_ad), 0, max(heatmap_ad)), c("blue", "lightyellow", "red")),
+                                      name = "z-score", clustering_distance_rows = method, clustering_method_rows = "single", 
+                                      row_dend_reorder = F, cluster_rows = T,  cluster_row_slices = F, 
+                                      row_title_rot = 0, show_row_names = F, show_column_names = F,
+                                      cluster_columns  = F, show_heatmap_legend = FALSE)
+  )
+}
+  
+# clustering_method_rows = "complete",
+# km = 7, row_km_repeats = 1, 
+
+setwd("C:/Users/spare/OneDrive - Radboudumc/Results/KCsinAD/FPcomp/KCinAD")
+pdf("Heatmap_HCAD_late_clusteringDistance.pdf", height = 8, width = 12)
+cowplot::plot_grid(plotlist = heatmap_all_compare) #another way of multiplotting
+dev.off()  
+
+####clustering method####
+for (method in clust_methods){
+   print(method)
+   heatmap_all_compare[[method]] <- as.ggplot(
+     Heatmap(heatmap_hcad_late, right_annotation = annot_genes, top_annotation = annot_celltype_hcad, 
+                                      col = colorRamp2(c(min(heatmap_ad), 0, max(heatmap_ad)), c("blue", "lightyellow", "red")),
+                                      name = "z-score", clustering_distance_rows = "XXXX", clustering_method_rows = method, 
+                                      row_dend_reorder = F, cluster_rows = T,  cluster_row_slices = F, 
+                                      row_title_rot = 0, show_row_names = F, show_column_names = F,
+                                      cluster_columns  = F, show_heatmap_legend = FALSE)
+  )
+}
+
+setwd("C:/Users/spare/OneDrive - Radboudumc/Results/KCsinAD/FPcomp/KCinAD")
+pdf("Heatmap_HCAD_late_clusteringMethod.pdf", height = 8, width = 12)
+cowplot::plot_grid(plotlist = heatmap_all_compare) #another way of multiplotting
+dev.off()
+
+####k means####
+for (k in kmeans){
+  print (k)
+   heatmap_all_compare[[k]] <- as.ggplot(
+     Heatmap(heatmap_hcad_late, right_annotation = annot_genes, top_annotation = annot_celltype_hcad, 
+                                      col = colorRamp2(c(min(heatmap_ad), 0, max(heatmap_ad)), c("blue", "lightyellow", "red")),
+                                      name = "z-score", km = k, row_km_repeats = 4,
+                                      row_dend_reorder = F, cluster_rows = T,  cluster_row_slices = F, 
+                                      row_title_rot = 0, show_row_names = F, show_column_names = F,
+                                      cluster_columns  = F, show_heatmap_legend = FALSE)
+  )
+}
+
+setwd("C:/Users/spare/OneDrive - Radboudumc/Results/KCsinAD/FPcomp/KCinAD")
+pdf("Heatmap_HCAD_late_kmeans.pdf", height = 8, width = 12)
+cowplot::plot_grid(plotlist = heatmap_all_compare) 
+dev.off()
+```
+
+```{r GO over enrichment trajectory genes - early}
+summary(row_order(heatmap_trajectory_hcad_early_k5))
+
+c1 <- heatmap_hcad_early[row_order(heatmap_trajectory_hcad_early_k5)[[1]], ]
+c2 <- heatmap_hcad_early[row_order(heatmap_trajectory_hcad_early_k5)[[2]], ]
+c3 <- heatmap_hcad_early[row_order(heatmap_trajectory_hcad_early_k5)[[3]], ]
+c4 <- heatmap_hcad_early[row_order(heatmap_trajectory_hcad_early_k5)[[4]], ]
+c5 <- heatmap_hcad_early[row_order(heatmap_trajectory_hcad_early_k5)[[5]], ] 
+
+heatmap_hcad_early_ASS1down <- c(rownames(c2))
+heatmap_hcad_early_KRT15down <- c(rownames(c4), rownames(c5))
+heatmap_hcad_early_nochange <- c(rownames(c3))
+
+ASS1down_GO <- enrichGO(gene = heatmap_hcad_early_ASS1down, OrgDb = org.Hs.eg.db, universe = row.names(roj_rds@assays$RNA@counts), keyType = 'SYMBOL', ont = "ALL", readable = T)
+ASS1down_GOdf <- as.data.frame(ASS1down_GO)
+View(ASS1down_GOdf)
+
+KRT15down_GO <- enrichGO(gene = heatmap_hcad_early_KRT15down, OrgDb = org.Hs.eg.db, universe = row.names(roj_rds@assays$RNA@counts), keyType = 'SYMBOL', ont = "ALL", readable = T)
+KRT15down_GOdf <- as.data.frame(KRT15down_GO)
+View(KRT15down_GOdf)
+
+Nochange_GO <- enrichGO(gene = heatmap_hcad_early_nochange, OrgDb = org.Hs.eg.db, universe = row.names(roj_rds@assays$RNA@counts), keyType = 'SYMBOL', ont = "ALL", readable = T)
+Nochange_GOdf <- as.data.frame(Nochange_GO)
+View(Nochange_GOdf)
+
+rownames(c1)
+
+#save
+list <- list("Early_ASS1down" = ASS1down_GO,
+             "Early_KRT15down" = KRT15down_GO,
+             "Early_nochange" = Nochange_GO,
+             "Early_c1" = rownames(c1)
+             )
+write.xlsx(list, file = "GO Heatmap HCADtrajectory early.xlsx")
+```
+
+#create nice unannotated early heatmap and check if I can annotate it later 
+#late heatmap
 
 # Separation of basal III subtypes
 
@@ -2796,10 +3022,7 @@ roj_rds@meta.data[["svm_added_anno"]] <- factor(roj_rds@meta.data[["svm_added_an
 ```{r visualization}
 Idents(roj_rds) <- "svm_added_anno"
 
-# colors <- brewer.pal(8, "Set2")
-
-custom_colors_b3sub <- c("basal III KRT15+" = "#6573A0", "basal III ASS1+" = "#B0B9E6", "basal II" = "#66C2A5", "basal I" = "#FFD92F", "basal IV" = "#A6D854", "stratum spinosum" = "#FC8D62", "stratum granulosum" = "#E78AC3")
-DimPlot(roj_rds[, roj_rds$disease == "HC"], cols = custom_colors_b3sub, repel = T,  label = T,  label.box = T) + NoLegend()
+DimPlot(roj_rds[, roj_rds$disease == "HC"], cols = colors_subtypesBasIII, repel = T,  label = T,  label.box = T) + NoLegend()
 ```
 
 ##Differences basal III subtypes - HC
@@ -3598,15 +3821,12 @@ table (a %in% b)
 
 
 ```{r TFAP2A expression}
-
-custom_colors <- c("basal III" = "#8DA0CB", "basal II" = "#66C2A5", "basal I" = "#FFD92F", "basal IV" = "#A6D854", "stratum spinosum" = "#FC8D62", "stratum granulosum" = "#E78AC3")
-
 Idents(roj_rds) <- "svm_annotation"
 FeaturePlot(roj_rds[, roj_rds$disease == "HC"], features = c('TFAP2A'), ncol = 1)
-VlnPlot(roj_rds[, roj_rds$disease == "HC"], cols = custom_colors, features = "TFAP2A")
+VlnPlot(roj_rds[, roj_rds$disease == "HC"], cols = colors_subtypes, features = "TFAP2A")
 
 FeaturePlot(roj_rds[, roj_rds$disease == "AD"], features = c('TFAP2A'), ncol = 1)
-VlnPlot(roj_rds[, roj_rds$disease == "AD"], cols = custom_colors, features = "TFAP2A")
+VlnPlot(roj_rds[, roj_rds$disease == "AD"], cols = colors_subtypes, features = "TFAP2A")
 
 VlnPlot(roj_rds, features = "TFAP2A", split.by = "disease", pt.size = 0)
 
@@ -3642,11 +3862,9 @@ ggplot(dataframe_with_columns_AP2a, aes(rows, expression, fill=disease)) +
 ```
 
 ```{r TSLP check}
-custom_colors <- c("basal III" = "#8DA0CB", "basal II" = "#66C2A5", "basal I" = "#FFD92F", "basal IV" = "#A6D854", "stratum spinosum" = "#FC8D62", "stratum granulosum" = "#E78AC3")
-
 Idents(roj_rds) <- "svm_annotation"
 FeaturePlot(roj_rds, features = c('TSLP'), split.by = "disease", ncol = 1)
-VlnPlot(roj_rds, features = c('TSLP'), split.by = "disease", cols = custom_colors) + theme(axis.title.x=element_blank())
+VlnPlot(roj_rds, features = c('TSLP'), split.by = "disease", cols = colors_subtypes) + theme(axis.title.x=element_blank())
 
 Idents(roj_rds) <- "disease"
 boxplot(roj_rds, features = "TSLP", split.by = "disease")
