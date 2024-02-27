@@ -262,15 +262,27 @@ VlnPlot(roj_rds, group.by = "svm_annotation", features = c("AHR", "OVOL1", "ID1"
 
 FeaturePlot(roj_rds[, roj_rds$disease == "HC"], features = c('IGFBP3', "IFITM1"))
 
+# Fig 1C
 FeaturePlot(roj_rds, features = c("KRT5", "KRT1", "FLG", "CA2"), split.by = "disease") & theme(legend.position = "right")
+FeaturePlot(roj_rds, features = c("KRT5", "KRT1", "FLG", "S100A7"), split.by = "disease") & theme(legend.position = "right")
+FeaturePlot(roj_rds, features = c("KRT5", "KRT1", "FLG", "KRT17"), split.by = "disease") & theme(legend.position = "right")
 
-VlnPlot(roj_rds, group.by = "svm_annotation", split.by = "disease", features = c("KRT5", "KRT14", "KRT1", "KRT10", "DSC1", "DSG1", "COL17A1", "ITGB1", "ITGA6", 'KRT15', "IVL", 'FLG', "LOR", 'KRT6A', 'KRT16', "S100A8", "S100A9", "CA2"), stack = T, flip = T, cols = colors_disease) + theme(axis.title.x = element_blank())
+#Fig 1D
+VlnPlot(roj_rds, group.by = "svm_annotation", split.by = "disease", features = c("KRT5", "KRT14", "KRT1", "KRT10", "DSC1", "CLDN4", 'IVL', "FLG", "LOR", 'KRT6A', 'KRT16', "CA2", "KRT17", "S100A7", "DEFB1"), stack = T, flip = T, cols = colors_disease) + theme(axis.title.x = element_blank()) #other markers of activated epithelium: S100A8, S100A9
+
+#additional AD markers
+VlnPlot(roj_rds, group.by = "svm_annotation", split.by = "disease", features = c("APOE", "CCL27", "STAT1",  "NEAT1"), stack = T, flip = T, cols = colors_disease) + theme(axis.title.x = element_blank()) #i also tried "CCL17", "TARC", "NOS2", "CTACK", "CCL27", "S100A12", "MMP12", "LDH", "CCL26", "SELE", "CCR7", "CCL19", "PIK3R1", "STAT6", "HBD2", "PI3", "MKI67", "CCL2", "CXCL2", AMPS: "LL37", "DEFB4", "S100A9", "DEFB2", "DEFB3", "HBD4", "SLPI"
+
+#Stem cell markers
+VlnPlot(roj_rds, group.by = "svm_annotation", split.by = "disease", features = c("COL17A1", "ITGB1", "ITGA6", 'KRT15'), stack = T, flip = T, cols = colors_disease) + theme(axis.title.x = element_blank()) #i also tried "LRIG1", "DLL1", "MCSP", "CD46", "FRMD4A", "OCT4", "MYC", "OCT3", "SOX2", "KLF4"
 
 VlnPlot(roj_rds, group.by = "svm_annotation", split.by = "disease", features = c("KRT15", "ASS1", "MCM3", "MKI67", "KRT14"), stack = T, flip = T, cols = colors_disease) + theme(axis.title.x = element_blank())
 
 VlnPlot(roj_rds, group.by = "svm_annotation", split.by = "disease", features = c("TP63"), flip = T, pt.size = 0, cols = colors_disease) + theme(axis.title.x = element_blank())
 
 VlnPlot(roj_rds, group.by = "svm_annotation", features = c("KLF4", "GATA3", "TAF10", "MAFB", "KRT10", "DSG1", "CLDN1", "SPRY1"), split.by = "disease", stack = T, flip = T, pt.size = 0, cols = colors_disease) + theme(axis.title.x = element_blank()) 
+
+VlnPlot(roj_rds, group.by = "svm_annotation", features = c("AHR", "NGFR"), split.by = "disease", stack = T, flip = T, pt.size = 0, cols = colors_disease) + theme(axis.title.x = element_blank()) 
 ```
 
 ```{r stacked barplot cell type percentage - HC vs AD}
@@ -2540,10 +2552,9 @@ icMat <- evaluateK(counts = roj_rds_sce@assays@data$counts, sds = SlingshotDataS
 ```
 
 Now we use a negative binomial general additive model to infer the smoothed gene expression of the highly variable genes with the knots we have determined before. 
-!you might want to play around with the filtering, maybe you also want to take the overlap of highly variable expressed genes with highly expressed genes or only use the highly expressed genes.!
+You might want to play around with the filtering, maybe you also want to take the overlap of highly variable expressed genes with highly expressed genes or only use the highly expressed genes
 -> reason is that you want to get rid of "noise" in the heatmap, mean genes that dont change alongside the trajectory 
-
-<!-- Here we choose a subset of highly expressed genes that we could later use or overlap with highly variable expression -->
+-> I chose to display the highly variable genes but kept the code for overlaying it with the highly expressed genes in. 
 
 ```{r select highly expressed genes}
 # counts <- as.data.frame(roj_rds@assays$RNA@counts)
@@ -2605,7 +2616,7 @@ diffex_trajectory <- readRDS("diffex_trajectory_counts_9knots_varfeaturesONLY.rd
 Now we draw a heatmap to visualize gene expression across the trajectory. We use only the highly variable genes for this that are also differential expressed along the trajectory. !As mentioned, try out if you find high background without change and therefore want to refine the selection!
 
 ```{r heatmap settings}
-library(ComplexHeatmap)
+library(ComplexHeatmap, verbose = F)
 
 pseudotime_genes <- diffex_trajectory[diffex_trajectory$pvalue < 0.05 & !is.na(diffex_trajectory$pvalue), ]
 # pseudotime_genes <- intersect(diffex_trajectory2$gene, rownames(gene_expr[gene_expr$highly_expressed == "yes", ]))
@@ -2703,6 +2714,9 @@ heatmap_trajectory_ad <- draw(Heatmap(heatmap_ad, right_annotation = annot_genes
 And now both together in a side-by-side heatmap 
 
 ```{r heatmap gene expression differentiation HC and AD}
+setwd("C:/Users/spare/OneDrive - Radboudumc/Results/KCsinAD/FPcomp/KCinAD")
+readRDS("heatmap_trajectory_hcad.rds")
+
 #match per gene ad and hc dataframe
 shared_genes <- intersect(rownames(heatmap_hc), rownames(heatmap_ad)) #only use genes present in both heatmaps
 heatmap_hcad <- cbind(heatmap_hc[shared_genes, ], heatmap_ad[shared_genes, ])
@@ -2727,9 +2741,25 @@ heatmap_trajectory_hcad <- draw(Heatmap(heatmap_hcad, right_annotation = annot_g
                                       km = 7, row_km_repeats = 1, row_dend_reorder = F, cluster_rows = T, clustering_method_rows = "single", cluster_row_slices = F, #clustering
                                       row_title_rot = 0, show_row_names = F, show_column_names = F,
                                       cluster_columns  = F)) 
+
+setwd("C:/Users/spare/OneDrive - Radboudumc/Results/KCsinAD/FPcomp/KCinAD")
+saveRDS(heatmap_trajectory_hcad, file = "heatmap_trajectory_hcad.rds")
 ```
 
-```{r new heatmap without cell cycle}
+```{r quick GO check heatmap HC and AD}
+c7_GO <- enrichGO(gene = c7, OrgDb = org.Hs.eg.db, universe = row.names(roj_rds@assays$RNA@counts), keyType = 'SYMBOL', ont = "ALL", readable = T)
+
+c7_GOdf <- as.data.frame(c7_GO)
+
+c4_GO <- enrichGO(gene = c4, OrgDb = org.Hs.eg.db, universe = row.names(roj_rds@assays$RNA@counts), keyType = 'SYMBOL', ont = "ALL", readable = T)
+
+c4_GOdf <- as.data.frame(c4_GO)
+View(c4_GOdf)
+```
+
+We see the a big influence of cell cycle genes. We therefore extract clusters of stem cell (before cell cycle) and late epidermal development genes. 
+
+```{r dissect heatmap into early and late epidermal development genes}
 summary(row_order(heatmap_trajectory_hcad))
 
 c1 <- heatmap_hcad[row_order(heatmap_trajectory_hcad)[[1]], ]
@@ -2739,49 +2769,9 @@ c7 <- heatmap_hcad[row_order(heatmap_trajectory_hcad)[[7]], ] #k means: $`1`, sp
 
 heatmap_hcad_late <- rbind(c1, c2) 
 heatmap_hcad_early <- rbind(c4, c7) 
-
-c7_GO <- enrichGO(gene = c7, OrgDb = org.Hs.eg.db, universe = row.names(roj_rds@assays$RNA@counts), keyType = 'SYMBOL', ont = "ALL", readable = T)
-
-c7_GOdf <- as.data.frame(c7_GO)
-
-c4_GO <- enrichGO(gene = c4, OrgDb = org.Hs.eg.db, universe = row.names(roj_rds@assays$RNA@counts), keyType = 'SYMBOL', ont = "ALL", readable = T)
-
-c4_GOdf <- as.data.frame(c4_GO)
-View(c4_GOdf)
-
-#heatmaps  for early / late trajectory genes
-setwd("C:/Users/spare/OneDrive - Radboudumc/Results/KCsinAD/FPcomp/KCinAD")
-heatmap_trajectory_hcad_early_k5 <- readRDS("heatmap_trajectory_hcad_early_k5.rds")
-
-# heatmap_trajectory_hcad_early_k5 <- draw(
-#   Heatmap(heatmap_hcad_early, top_annotation = annot_celltype_hcad,
-#           col = colorRamp2(c(min(heatmap_ad), 0, max(heatmap_ad)), c("blue", "lightyellow", "red")),
-#           name = "z-score", k = 5, row_km_repeats = 1, cluster_columns  = F,
-#           row_dend_reorder = F, cluster_rows = T, cluster_row_slices = F, 
-#           row_title_rot = 0, show_row_names = F, show_column_names = F)
-#   ) 
-# 
-# setwd("C:/Users/spare/OneDrive - Radboudumc/Results/KCsinAD/FPcomp/KCinAD")
-# saveRDS(object = heatmap_trajectory_hcad_early_k5, file = "heatmap_trajectory_hcad_early_k5_6.rds")
-
-heatmap_trajectory_hcad_late <- draw(Heatmap(heatmap_hcad_late, top_annotation = annot_celltype_hcad,
-                                      col = colorRamp2(c(min(heatmap_ad), 0, max(heatmap_ad)), c("blue", "lightyellow", "red")),
-                                      name = "z-score", km = 3, row_km_repeats = 3, 
-                                      row_dend_reorder = F, cluster_rows = T, clustering_method_rows = "single", cluster_row_slices = F, 
-                                      row_title_rot = 0, show_row_names = F, show_column_names = F,
-                                      cluster_columns  = F)) 
-
-genes_to_anno_hcearly <- c("KRT15", "ASS1")
-
-#annotate genes of interest
-annot_genes_hcearly <- HeatmapAnnotation(
-  GeneOfInterest = anno_mark(at = match(genes_to_anno_hcearly, rownames(heatmap_hcad_early)),
-                             labels = genes_to_anno_hcearly),
-  which = "row"
-  ) #show_annotation_name = T
-
-heatmap_trajectory_hcad_early_k5 + annot_genes_hcearly
 ```
+
+We now plot early development genes. 
 
 ```{r optimize clustering heatmap hcad early}
 clust_dist <- c("euclidean", "maximum", "manhattan", "canberra", "minkowski", "pearson", "spearman", "kendall", "binary") 
@@ -2791,23 +2781,21 @@ heatmap_all_compare <- vector(mode = "list") #creates a list, a list can have di
 
 library(ggplotify)
 
-#annotate cell types -> hiding legend here
 annot_celltype_hcad <- HeatmapAnnotation(
   celltype = c(svm_annotation_hc, svm_annotation_ad),
   col = list(celltype = colors_subtypes),
-  show_legend = FALSE
+  show_annotation_name = F
   )
 
 ####clustering distance####
 for (method in clust_dist){
   print(method)
   heatmap_all_compare[[method]] <- ggplotify::as.ggplot(
-         Heatmap(heatmap_hcad_early, right_annotation = annot_genes, top_annotation = annot_celltype_hcad, 
-                                      col = colorRamp2(c(min(heatmap_ad), 0, max(heatmap_ad)), c("blue", "lightyellow", "red")),
-                                      name = "z-score", clustering_distance_rows = method, clustering_method_rows = "single", 
-                                      row_dend_reorder = F, cluster_rows = T,  cluster_row_slices = F, 
-                                      row_title_rot = 0, show_row_names = F, show_column_names = F,
-                                      cluster_columns  = F, show_heatmap_legend = FALSE)
+         Heatmap(heatmap_hcad_early, col = colorRamp2(c(min(heatmap_ad), 0, max(heatmap_ad)), c("blue", "lightyellow", "red")),
+                 name = "z-score", clustering_distance_rows = method, clustering_method_rows = "single", 
+                 row_dend_reorder = F, cluster_rows = T,  cluster_row_slices = F, 
+                 row_title_rot = 0, show_row_names = F, show_column_names = F,
+                 cluster_columns  = F, show_heatmap_legend = FALSE)
   )
 }
   
@@ -2823,12 +2811,11 @@ dev.off()
 for (method in clust_methods){
   print(method)
    heatmap_all_compare[[method]] <- as.ggplot(
-     Heatmap(heatmap_hcad_early, right_annotation = annot_genes, top_annotation = annot_celltype_hcad, 
-                                      col = colorRamp2(c(min(heatmap_ad), 0, max(heatmap_ad)), c("blue", "lightyellow", "red")),
-                                      name = "z-score", clustering_distance_rows = "XXXX", clustering_method_rows = method, 
-                                      row_dend_reorder = F, cluster_rows = T,  cluster_row_slices = F,  
-                                      row_title_rot = 0, show_row_names = F, show_column_names = F,
-                                      cluster_columns  = F, show_heatmap_legend = FALSE)
+     Heatmap(heatmap_hcad_early, col = colorRamp2(c(min(heatmap_ad), 0, max(heatmap_ad)), c("blue", "lightyellow", "red")),
+             name = "z-score", clustering_distance_rows = "XXXX", clustering_method_rows = method, 
+             row_dend_reorder = F, cluster_rows = T,  cluster_row_slices = F,  
+             row_title_rot = 0, show_row_names = F, show_column_names = F,
+             cluster_columns  = F, show_heatmap_legend = FALSE)
   )
 }
 
@@ -2841,12 +2828,12 @@ dev.off()
 for (k in kmeans){
     print(k)
    heatmap_all_compare[[k]] <- as.ggplot(
-     Heatmap(heatmap_hcad_early, right_annotation = annot_genes, top_annotation = annot_celltype_hcad, 
-                                      col = colorRamp2(c(min(heatmap_ad), 0, max(heatmap_ad)), c("blue", "lightyellow", "red")),
-                                      name = "z-score", km = k, row_km_repeats = 4, show_heatmap_legend = FALSE,
-                                      row_dend_reorder = F, cluster_rows = T,  cluster_row_slices = F, 
-                                      row_title_rot = 0, show_row_names = F, show_column_names = F,
-                                      cluster_columns  = F)
+     Heatmap(heatmap_hcad_early, top_annotation = annot_celltype_hcad,
+             col = colorRamp2(c(min(heatmap_ad), 0, max(heatmap_ad)), c("blue", "lightyellow", "red")),
+             name = "z-score", km = k, row_km_repeats = 4, show_heatmap_legend = FALSE,
+             row_dend_reorder = F, cluster_rows = T,  cluster_row_slices = F, 
+             row_title_rot = 0, show_row_names = F, show_column_names = F,
+             cluster_columns  = F)
   )
 }
 
@@ -2856,11 +2843,90 @@ cowplot::plot_grid(plotlist = heatmap_all_compare)
 dev.off()
 ```
 
+```{r heatmap early devlopment}
+setwd("C:/Users/spare/OneDrive - Radboudumc/Results/KCsinAD/FPcomp/KCinAD")
+# heatmap_trajectory_hcad_early_k5 <- readRDS("heatmap_trajectory_hcad_early_k5.rds")
+heatmap_trajectory_hcad_early <- readRDS("heatmap_trajectory_hcad_early9.rds")
+
+
+annot_celltype_hcad <- HeatmapAnnotation(
+  celltype = c(svm_annotation_hc, svm_annotation_ad),
+  col = list(celltype = colors_subtypes),
+  show_annotation_name = T
+  )
+
+
+# genes_to_anno_hcearly <- c("KRT15", "ASS1", "KRT5", "KRT14", 
+#                            "COL17A1", "ITGA6", "ITGB1", 
+#                            "FOS", "JUN", 
+#                            "TP63"
+#                            )
+# 
+# #annotate genes of interest
+# annot_genes_hcearly <- HeatmapAnnotation(
+#   GeneOfInterest = anno_mark(at = match(genes_to_anno_hcearly, rownames(heatmap_hcad_early)),
+#                              labels = genes_to_anno_hcearly),
+#   which = "row"
+#   ) #show_annotation_name = T
+# 
+# heatmap_trajectory_hcad_early9 <- draw(
+#   Heatmap(heatmap_hcad_early, top_annotation = annot_celltype_hcad, right_annotation = annot_genes_hcearly,
+#           col = colorRamp2(c(min(heatmap_ad), 0, max(heatmap_ad)), c("blue", "lightyellow", "red")),
+#           name = "z-score", k = 5, row_km_repeats = 1, cluster_columns  = F,
+#           row_dend_reorder = F, cluster_rows = T, cluster_row_slices = F,
+#           row_title_rot = 0, show_row_names = F, show_column_names = F)
+# )
+
+# setwd("C:/Users/spare/OneDrive - Radboudumc/Results/KCsinAD/FPcomp/KCinAD")
+# saveRDS(object = heatmap_trajectory_hcad_early9, file = "heatmap_trajectory_hcad_early9.rds")
+```
+
+```{r GO over enrichment trajectory genes - early}
+summary(row_order(heatmap_trajectory_hcad_early))
+
+c1 <- heatmap_hcad_early[row_order(heatmap_trajectory_hcad_early)[[1]], ]
+c2 <- heatmap_hcad_early[row_order(heatmap_trajectory_hcad_early)[[2]], ]
+c3 <- heatmap_hcad_early[row_order(heatmap_trajectory_hcad_early)[[3]], ]
+c4 <- heatmap_hcad_early[row_order(heatmap_trajectory_hcad_early)[[4]], ]
+c5 <- heatmap_hcad_early[row_order(heatmap_trajectory_hcad_early)[[5]], ] 
+
+heatmap_hcad_early_ASS1down <- c(rownames(c1), rownames(c2))
+heatmap_hcad_early_KRT15down <- c(rownames(c4), rownames(c5))
+heatmap_hcad_early_nochange <- c(rownames(c3))
+
+ASS1down_GO <- enrichGO(gene = heatmap_hcad_early_ASS1down, OrgDb = org.Hs.eg.db, universe = row.names(roj_rds@assays$RNA@counts), keyType = 'SYMBOL', ont = "ALL", readable = T)
+ASS1down_GOdf <- as.data.frame(ASS1down_GO)
+View(ASS1down_GOdf)
+
+KRT15down_GO <- enrichGO(gene = heatmap_hcad_early_KRT15down, OrgDb = org.Hs.eg.db, universe = row.names(roj_rds@assays$RNA@counts), keyType = 'SYMBOL', ont = "ALL", readable = T)
+KRT15down_GOdf <- as.data.frame(KRT15down_GO)
+View(KRT15down_GOdf)
+
+Nochange_GO <- enrichGO(gene = heatmap_hcad_early_nochange, OrgDb = org.Hs.eg.db, universe = row.names(roj_rds@assays$RNA@counts), keyType = 'SYMBOL', ont = "ALL", readable = T)
+Nochange_GOdf <- as.data.frame(Nochange_GO)
+View(Nochange_GOdf)
+
+#save
+list <- list("Early_ASS1down" = ASS1down_GO,
+             "Early_KRT15down" = KRT15down_GO,
+             "Early_nochange" = Nochange_GO
+             )
+write.xlsx(list, file = "GO Heatmap HCADtrajectory early2.xlsx")
+```
+
+Here we plot late epidermal development genes. 
+
 ```{r optimize clustering heatmap hcad late}
 clust_dist <- c("euclidean", "maximum", "manhattan", "canberra", "minkowski", "pearson", "spearman", "binary") 
 clust_methods <- c("ward.D","ward.D2",  "centroid", "complete", "average", "mcquitty", "median", "single") 
 kmeans <- c(1, 2, 3, 4, 5, 6)
 heatmap_all_compare <- vector(mode = "list") #creates a list, a list can have different elements as vectors, matrixes, other lists
+
+annot_celltype_hcad <- HeatmapAnnotation(
+  celltype = c(svm_annotation_hc, svm_annotation_ad),
+  col = list(celltype = colors_subtypes),
+  show_legend = F
+  )
 
 library(ggplotify)
 
@@ -2868,7 +2934,7 @@ library(ggplotify)
 for (method in clust_dist){
   print(method)
   heatmap_all_compare[[method]] <- ggplotify::as.ggplot(
-         Heatmap(heatmap_hcad_late, right_annotation = annot_genes, top_annotation = annot_celltype_hcad, 
+         Heatmap(heatmap_hcad_late, top_annotation = annot_celltype_hcad, 
                                       col = colorRamp2(c(min(heatmap_ad), 0, max(heatmap_ad)), c("blue", "lightyellow", "red")),
                                       name = "z-score", clustering_distance_rows = method, clustering_method_rows = "single", 
                                       row_dend_reorder = F, cluster_rows = T,  cluster_row_slices = F, 
@@ -2907,12 +2973,12 @@ dev.off()
 for (k in kmeans){
   print (k)
    heatmap_all_compare[[k]] <- as.ggplot(
-     Heatmap(heatmap_hcad_late, right_annotation = annot_genes, top_annotation = annot_celltype_hcad, 
-                                      col = colorRamp2(c(min(heatmap_ad), 0, max(heatmap_ad)), c("blue", "lightyellow", "red")),
-                                      name = "z-score", km = k, row_km_repeats = 4,
-                                      row_dend_reorder = F, cluster_rows = T,  cluster_row_slices = F, 
-                                      row_title_rot = 0, show_row_names = F, show_column_names = F,
-                                      cluster_columns  = F, show_heatmap_legend = FALSE)
+     Heatmap(heatmap_hcad_late, top_annotation = annot_celltype_hcad, 
+             col = colorRamp2(c(min(heatmap_ad), 0, max(heatmap_ad)), c("blue", "lightyellow", "red")),
+             name = "z-score", km = k, row_km_repeats = 4,
+             row_dend_reorder = F, cluster_rows = T,  cluster_row_slices = F, 
+             row_title_rot = 0, show_row_names = F, show_column_names = F,
+             cluster_columns  = F, show_heatmap_legend = FALSE)
   )
 }
 
@@ -2922,44 +2988,85 @@ cowplot::plot_grid(plotlist = heatmap_all_compare)
 dev.off()
 ```
 
-```{r GO over enrichment trajectory genes - early}
-summary(row_order(heatmap_trajectory_hcad_early_k5))
+```{r heatmap late devlopment}
+# setwd("C:/Users/spare/OneDrive - Radboudumc/Results/KCsinAD/FPcomp/KCinAD")
+# heatmap_trajectory_hcad_late <- readRDS("heatmap_trajectory_hcad_late9.rds")
 
-c1 <- heatmap_hcad_early[row_order(heatmap_trajectory_hcad_early_k5)[[1]], ]
-c2 <- heatmap_hcad_early[row_order(heatmap_trajectory_hcad_early_k5)[[2]], ]
-c3 <- heatmap_hcad_early[row_order(heatmap_trajectory_hcad_early_k5)[[3]], ]
-c4 <- heatmap_hcad_early[row_order(heatmap_trajectory_hcad_early_k5)[[4]], ]
-c5 <- heatmap_hcad_early[row_order(heatmap_trajectory_hcad_early_k5)[[5]], ] 
+annot_celltype_hcad <- HeatmapAnnotation(
+  celltype = c(svm_annotation_hc, svm_annotation_ad),
+  col = list(celltype = colors_subtypes),
+  show_annotation_name = T
+  )
 
-heatmap_hcad_early_ASS1down <- c(rownames(c2))
-heatmap_hcad_early_KRT15down <- c(rownames(c4), rownames(c5))
-heatmap_hcad_early_nochange <- c(rownames(c3))
+genes_to_anno_hclate <- c("KRT1", "KRT10", "GRHL3","DSC1", "DSG1", "FLG", "IVL", "LOR")
 
-ASS1down_GO <- enrichGO(gene = heatmap_hcad_early_ASS1down, OrgDb = org.Hs.eg.db, universe = row.names(roj_rds@assays$RNA@counts), keyType = 'SYMBOL', ont = "ALL", readable = T)
-ASS1down_GOdf <- as.data.frame(ASS1down_GO)
-View(ASS1down_GOdf)
+#annotate genes of interest
+annot_genes_hcelate <- HeatmapAnnotation(
+  GeneOfInterest = anno_mark(at = match(genes_to_anno_hclate, rownames(heatmap_hcad_late)),
+                             labels = genes_to_anno_hclate),
+  which = "row"
+  )
 
-KRT15down_GO <- enrichGO(gene = heatmap_hcad_early_KRT15down, OrgDb = org.Hs.eg.db, universe = row.names(roj_rds@assays$RNA@counts), keyType = 'SYMBOL', ont = "ALL", readable = T)
-KRT15down_GOdf <- as.data.frame(KRT15down_GO)
-View(KRT15down_GOdf)
+heatmap_trajectory_hcad_late9 <- draw(
+  Heatmap(heatmap_hcad_late, top_annotation = annot_celltype_hcad, right_annotation = annot_genes_hcelate,
+          col = colorRamp2(c(min(heatmap_ad), 0, max(heatmap_ad)), c("blue", "lightyellow", "red")),
+          name = "z-score", k = 5, row_km_repeats = 3, cluster_columns  = F,
+          row_dend_reorder = F, cluster_rows = T, cluster_row_slices = F,
+          row_title_rot = 0, show_row_names = F, show_column_names = F)
+)
 
-Nochange_GO <- enrichGO(gene = heatmap_hcad_early_nochange, OrgDb = org.Hs.eg.db, universe = row.names(roj_rds@assays$RNA@counts), keyType = 'SYMBOL', ont = "ALL", readable = T)
+heatmap_trajectory_hcad_late <- heatmap_trajectory_hcad_late9
+
+# setwd("C:/Users/spare/OneDrive - Radboudumc/Results/KCsinAD/FPcomp/KCinAD")
+# saveRDS(object = heatmap_trajectory_hcad_late9, file = "heatmap_trajectory_hcad_late9.rds")
+```
+
+```{r GO over enrichment trajectory genes - late}
+summary(row_order(heatmap_trajectory_hcad_late))
+
+c1 <- heatmap_hcad_late[row_order(heatmap_trajectory_hcad_late)[[1]], ]
+c2 <- heatmap_hcad_late[row_order(heatmap_trajectory_hcad_late)[[2]], ]
+c3 <- heatmap_hcad_late[row_order(heatmap_trajectory_hcad_late)[[3]], ]
+c4 <- heatmap_hcad_late[row_order(heatmap_trajectory_hcad_late)[[4]], ]
+c5 <- heatmap_hcad_late[row_order(heatmap_trajectory_hcad_late)[[5]], ] 
+
+heatmap_hcad_late_downc2 <- c(rownames(c2))
+heatmap_hcad_late_nochange <- c(rownames(c3))
+heatmap_hcad_late_downc4 <- c(rownames(c4))
+heatmap_hcad_late_down <- c(rownames(c1), rownames(c2), rownames(c4))
+heatmap_hcad_late_up <- c(rownames(c5))
+
+Nochange_GO <- enrichGO(gene = heatmap_hcad_late_nochange, OrgDb = org.Hs.eg.db, universe = row.names(roj_rds@assays$RNA@counts), keyType = 'SYMBOL', ont = "ALL", readable = T)
 Nochange_GOdf <- as.data.frame(Nochange_GO)
 View(Nochange_GOdf)
 
-rownames(c1)
+Late_downc2_GO <- enrichGO(gene = heatmap_hcad_late_downc2, OrgDb = org.Hs.eg.db, universe = row.names(roj_rds@assays$RNA@counts), keyType = 'SYMBOL', ont = "ALL", readable = T)
+Late_downc2_GOdf <- as.data.frame(Late_downc2_GO)
+View(Late_downc2_GOdf)
+
+Late_downc4_GO <- enrichGO(gene = heatmap_hcad_late_downc4, OrgDb = org.Hs.eg.db, universe = row.names(roj_rds@assays$RNA@counts), keyType = 'SYMBOL', ont = "ALL", readable = T)
+Late_downc4_GOdf <- as.data.frame(Late_downc4_GO)
+View(Late_downc4_GOdf)
+
+Late_down_GO <- enrichGO(gene = heatmap_hcad_late_down, OrgDb = org.Hs.eg.db, universe = row.names(roj_rds@assays$RNA@counts), keyType = 'SYMBOL', ont = "ALL", readable = T)
+Late_down_GOdf <- as.data.frame(Late_down_GO)
+View(Late_down_GOdf)
+
+Late_upGO <- enrichGO(gene = heatmap_hcad_late_up, OrgDb = org.Hs.eg.db, universe = row.names(roj_rds@assays$RNA@counts), keyType = 'SYMBOL', ont = "ALL", readable = T)
+Late_upGOdf <- as.data.frame(Late_upGO)
+View(Late_upGOdf)
 
 #save
-list <- list("Early_ASS1down" = ASS1down_GO,
-             "Early_KRT15down" = KRT15down_GO,
-             "Early_nochange" = Nochange_GO,
-             "Early_c1" = rownames(c1)
+list <- list("Late_nochange" = Nochange_GOdf,
+             "Late_downC2" = Late_downc2_GOdf,
+             "Late_downC4" = Late_downc4_GOdf,
+             "Late_down" = Late_down_GOdf,
+             "Late_up" = Late_upGOdf
              )
-write.xlsx(list, file = "GO Heatmap HCADtrajectory early.xlsx")
+write.xlsx(list, file = "GO Heatmap HCADtrajectory late.xlsx")
 ```
 
-#create nice unannotated early heatmap and check if I can annotate it later 
-#late heatmap
+
 
 # Separation of basal III subtypes
 
