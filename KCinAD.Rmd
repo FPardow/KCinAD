@@ -149,12 +149,18 @@ Renaming and renaming metadata categories.
 
 ```{r rename and order metadata}
 # rename and reorder svm annotation
-# Idents(roj_rds) <- roj_rds$svm_annotation
-# roj_rds <- RenameIdents(roj_rds, "BASAL III" = "basal III", "BASAL II" = "basal II", "BASAL I" = "basal I", "BASAL IV" = "basal IV", "Spinosum" = "stratum spinosum", "Stratum Granulosum" = "stratum granulosum")
-# levels(roj_rds) #check
-# 
-# roj_rds@meta.data[["svm_annotation"]] <- Idents(roj_rds)
+Idents(roj_rds) <- roj_rds$svm_annotation
+roj_rds <- RenameIdents(roj_rds, "BASAL III" = "basal III", "BASAL II" = "basal II", "BASAL I" = "basal I", "BASAL IV" = "basal IV", "Spinosum" = "stratum spinosum", "Stratum Granulosum" = "stratum granulosum")
+levels(roj_rds) #check
 
+roj_rds@meta.data[["svm_annotation"]] <- Idents(roj_rds)
+
+#reorder svm annotation
+roj_rds@meta.data[["svm_annotation"]] <- factor(roj_rds@meta.data[["svm_annotation"]], levels = c("basal I", "basal II", "basal III", "basal IV", "stratum spinosum", "stratum granulosum")) #order cell identities
+
+levels(roj_rds$svm_annotation) #check
+
+#reorder disease factor 
 roj_rds@meta.data[["disease"]] <- factor(roj_rds@meta.data[["disease"]], levels = c("HC", "AD")) #order cell identities
 ```
 
@@ -274,7 +280,9 @@ VlnPlot(roj_rds, group.by = "svm_annotation", split.by = "disease", features = c
 VlnPlot(roj_rds, group.by = "svm_annotation", split.by = "disease", features = c("APOE", "CCL27", "STAT1",  "NEAT1"), stack = T, flip = T, cols = colors_disease) + theme(axis.title.x = element_blank()) #i also tried "CCL17", "TARC", "NOS2", "CTACK", "CCL27", "S100A12", "MMP12", "LDH", "CCL26", "SELE", "CCR7", "CCL19", "PIK3R1", "STAT6", "HBD2", "PI3", "MKI67", "CCL2", "CXCL2", AMPS: "LL37", "DEFB4", "S100A9", "DEFB2", "DEFB3", "HBD4", "SLPI"
 
 #Stem cell markers
-VlnPlot(roj_rds, group.by = "svm_annotation", split.by = "disease", features = c("COL17A1", "ITGB1", "ITGA6", 'KRT15'), stack = T, flip = T, cols = colors_disease) + theme(axis.title.x = element_blank()) #i also tried "LRIG1", "DLL1", "MCSP", "CD46", "FRMD4A", "OCT4", "MYC", "OCT3", "SOX2", "KLF4"
+VlnPlot(roj_rds, group.by = "svm_annotation", split.by = "disease", features = c("COL17A1", "ITGB1", "ITGA6"), stack = T, flip = T, cols = colors_disease) + theme(axis.title.x = element_blank()) #i also tried "LRIG1", "DLL1", "MCSP", "CD46", "FRMD4A", "OCT4", "MYC", "OCT3", "SOX2", "KLF4"
+
+VlnPlot(roj_rds[ , roj_rds$disease == "HC"], group.by = "svm_annotation", split.by = "disease", features = c("COL17A1", "ITGB1", "ITGA6"), stack = T, flip = T, cols = c(rep("#8DA0CB", 10))) + theme(axis.title.x = element_blank()) + NoLegend() #i also tried "LRIG1", "DLL1", "MCSP", "CD46", "FRMD4A", "OCT4", "MYC", "OCT3", "SOX2", "KLF4" 
 
 VlnPlot(roj_rds, group.by = "svm_annotation", split.by = "disease", features = c("KRT15", "ASS1", "MCM3", "MKI67", "KRT14"), stack = T, flip = T, cols = colors_disease) + theme(axis.title.x = element_blank())
 
@@ -283,6 +291,20 @@ VlnPlot(roj_rds, group.by = "svm_annotation", split.by = "disease", features = c
 VlnPlot(roj_rds, group.by = "svm_annotation", features = c("KLF4", "GATA3", "TAF10", "MAFB", "KRT10", "DSG1", "CLDN1", "SPRY1"), split.by = "disease", stack = T, flip = T, pt.size = 0, cols = colors_disease) + theme(axis.title.x = element_blank()) 
 
 VlnPlot(roj_rds, group.by = "svm_annotation", features = c("AHR", "NGFR"), split.by = "disease", stack = T, flip = T, pt.size = 0, cols = colors_disease) + theme(axis.title.x = element_blank()) 
+
+FeaturePlot(roj_rds, features = c("JUN", "FOS", "TP63"), split.by = "disease") & theme(legend.position = "right")
+FeaturePlot(roj_rds, features = c("CCL2", "POSTN", "IL1R2"), split.by = "disease") & theme(legend.position = "right")
+FeaturePlot(roj_rds[, roj_rds$disease == "AD"], features = c("IGFBP3", "KRT6A", "KRT16", "S100A7", "S100A8", "KRT17", "CASP14", "SERPINB2", "DSG1")) & theme(legend.position = "right")
+
+FeaturePlot(roj_rds, features = c("KRT15", "AHR", "CYP1A1", "CYP1B1"), split.by = "disease") & theme(legend.position = "right")
+
+FeaturePlot(roj_rds[, roj_rds$disease == "HC"], features = c("AHR", "CYP1B1"), blend = T) & theme(legend.position = "right")
+
+VlnPlot(roj_rds, group.by = "svm_annotation", features = c("AHR", "ARNT", "CYP1A1", "CYP1B1"), split.by = "disease", stack = T, flip = T, pt.size = 0, cols = colors_disease) + theme(axis.title.x = element_blank()) 
+
+VlnPlot(roj_rds, group.by = "svm_annotation", split.by = "disease", features = c("AHR", "ARNT", "CYP1A1", "CYP1B1"), split.by = "disease", stack = T, flip = T, cols = colors_disease) + theme(axis.title.x = element_blank())
+
+FeaturePlot(roj_rds[, roj_rds$disease == "HC"], features = c("AHR", "CYP1B1"), blend = T, cols = c("red", "blue", "green", "lightgrey")) & theme(legend.position = "right")
 ```
 
 ```{r stacked barplot cell type percentage - HC vs AD}
@@ -487,6 +509,14 @@ diffex_ad_svm <- readRDS("C:/Users/spare/OneDrive - Radboudumc/Results/KCsinAD/F
 # write.xlsx(diffex_ad_svm, file = "diffex_ad_svm.xlsx")
 ```
 
+```{r DEanalysis AD KRT15 vs ASS1}
+table(roj_rds$svm_added_anno)
+
+markers <- FindMarkers(roj_rds[, roj_rds$disease == "AD"], group.by = "svm_added_anno", ident.1 = "basal III KRT15+", ident.2 = "basal III ASS1+")
+colnames(markers) <- paste("AD", colnames(markers), sep = "_")
+markers$gene <- rownames(markers)
+```
+
 ```{r DEanalysis global - AD vs HC, svm annotated}
 diffex_ad_hc_svm <- readRDS("C:/Users/spare/OneDrive - Radboudumc/Results/KCsinAD/FPcomp/KCinAD/diffex_ad_hc_svm.rds")
 
@@ -525,6 +555,8 @@ diffex_ad_hc_svm <- readRDS("C:/Users/spare/OneDrive - Radboudumc/Results/KCsinA
 # write.xlsx(diffex_ad_hc_svm, file = "diffex_ad_hc_svm.xlsx")
 ```
 
+
+
 # Basal I - IV marker genes
 
 ```{r Visualization cell type markers}
@@ -533,7 +565,11 @@ m_bII <- c("MCM3", "MCM5", "DNMT1", "GINS2", "HELLS", "MCM4", "CDT1")
 m_bI <- c("CENPF", "MKI67", "CCNB2", "CDKN3", "TOP2A", "ASPM", "BIRC5", "UBE2C", "CDC20", "CCNB1")
 m_bIV <- c("MT1H", "VSNL1", "KRT6A", "RRP15", "SMAD2", "ITPRIPL2", "MAPK1IP1L")
 
-VlnPlot(roj_rds[, roj_rds$disease == "HC"], group.by = "svm_annotation", features = c(m_bIII, m_bII, m_bI, m_bIV, "KRT5", "KRT14"), cols = c(rep("#8DA0CB", 10), rep("#66C2A5", 7), rep("#FFD92F", 10), c(rep("#A6D854", 7)), rep("#FC8D62", 2)), stack = T, flip = T) + NoLegend()
+VlnPlot(roj_rds[, roj_rds$disease == "HC"], group.by = "svm_annotation", features = c(m_bIII, m_bII, m_bI, m_bIV, "KRT5", "KRT14", "KRT1", "KRT10"), cols = c(rep("#8DA0CB", 10), rep("#66C2A5", 7), rep("#FFD92F", 10), c(rep("#A6D854", 7)), rep("#FC8D62", 4)), stack = T, flip = T) + NoLegend() + theme(axis.title.x = element_blank())
+
+VlnPlot(roj_rds[, roj_rds$disease == "HC"], group.by = "svm_annotation", features = c(m_bI, m_bII, m_bIII, m_bIV, "KRT5", "KRT14", "KRT1", "KRT10"), cols = c(rep("#FFD92F", 10), rep("#66C2A5", 7), rep("#8DA0CB", 10), c(rep("#A6D854", 7)), rep("#FC8D62", 4)), stack = T, flip = T) + NoLegend() + theme(axis.title.x = element_blank())
+
+VlnPlot(roj_rds, group.by = "svm_annotation", features = c(m_bI, m_bII, m_bIII, m_bIV, "KRT5", "KRT14", "KRT1", "KRT10"), cols = colors_disease, split.by = "disease", stack = T, flip = T) + theme(axis.title.x = element_blank())
 
 VlnPlot(roj_rds[, roj_rds$disease == "HC"], group.by = "svm_annotation", features = c(m_bII), cols = c(rep("#66C2A5", 10)), stack = T, flip = T) + NoLegend()
 
@@ -546,6 +582,8 @@ VlnPlot(roj_rds[, roj_rds$disease == "HC"], group.by = "svm_annotation", feature
 VlnPlot(roj_rds[, roj_rds$disease == "HC"], group.by = "svm_added_anno", features = c("KRT1", "KRT5", "KRT14", "COL17A1", "WNT4", "CCL2", "DSG1", "KRT15", "ASS1"), stack = T, flip = T) + NoLegend()
 
 VlnPlot(roj_rds, group.by = "svm_annotation", split.by = "disease", features = c("KRT15", "ASS1", "MCM3", "MKI67", "KRT14"), stack = T, flip = T) + NoLegend()
+
+
 ```
 
 ```{r Visualization stem cell markers}
@@ -638,10 +676,14 @@ roj_rds <- CellCycleScoring(roj_rds, s.features = cc.genes.updated.2019$s.genes,
 # head(roj_rds@meta.data)
 Idents(roj_rds) <- "Phase"
 DimPlot(roj_rds, group.by = "Phase", cols = colors_cellcycle, order = c("G2M", "S", "G1"))
+DimPlot(roj_rds[ , roj_rds$disease == "HC"], group.by = "Phase", cols = colors_cellcycle, order = c("G2M", "S", "G1"))
 
 # RidgePlot(roj_rds, features = c("S.Score", "G2M.Score"), ncol = 2, group.by = "svm_annotation")
+```
 
-#Visualize the percentage of cell cycle phases
+Visualize the percentages of the cell cycle phases
+
+```{r barplot CC percentages}
 percentage_df = function(seurat_object, cell_annotation = "seurat_clusters",variable = "orig.ident",facet = F){
   #variable = which columns
   #Change ID
@@ -692,7 +734,7 @@ percentage_df = function(seurat_object, cell_annotation = "seurat_clusters",vari
 phase_percentage  <- percentage_df(roj_rds[, roj_rds$disease == "HC"], cell_annotation = "Phase", variable = "svm_annotation", facet = F)
 
 #reorder: 
-phase_percentage$Variable <- factor(phase_percentage$Variable, levels = c("basal III", "basal II", "basal I", "basal IV", "stratum spinosum", "stratum granulosum"))
+phase_percentage$Variable <- factor(phase_percentage$Variable, levels = c("basal I", "basal II", "basal III", "basal IV", "stratum spinosum", "stratum granulosum"))
 factor(phase_percentage$Variable)
 phase_percentage$Celltype <- factor(phase_percentage$Celltype, levels = c("G1", "S", "G2M")) 
 factor(phase_percentage$Celltype)
@@ -707,8 +749,8 @@ ggplot(phase_percentage, aes(fill = Celltype, y = percentage, x = Variable)) +
 #AD
 phase_percentage  <- percentage_df(roj_rds[, roj_rds$disease == "AD"], cell_annotation = "Phase", variable = "svm_annotation", facet = F)
 
-#reorder: 
-phase_percentage$Variable <- factor(phase_percentage$Variable, levels = c("basal III", "basal II", "basal I", "basal IV", "stratum spinosum", "stratum granulosum"))
+#reorder:
+phase_percentage$Variable <- factor(phase_percentage$Variable, levels = c("basal I", "basal II", "basal III", "basal IV", "stratum spinosum", "stratum granulosum"))
 factor(phase_percentage$Variable)
 phase_percentage$Celltype <- factor(phase_percentage$Celltype, levels = c("G1", "S", "G2M")) 
 factor(phase_percentage$Celltype)
@@ -721,8 +763,10 @@ ggplot(phase_percentage, aes(fill = Celltype, y = percentage, x = Variable)) +
     scale_fill_manual(values = colors_cellcycle)
 ```
 
-# Functional analysis basal cell types HC
-##Prepare gene lists
+
+# Functional analysis basal cell types
+## Functional analysis basal cell types HC
+###Prepare gene lists
 
 ```{r annotate gene symbol with entrezID}
 #annotate all expressed background genes
@@ -869,7 +913,7 @@ DEHC_granulosumdown <- diffex_hc_svm[diffex_hc_svm$HC_granulosum_p_val_adj < 0.0
 # DEAD_granulosumdown_gsea <- sort(DEAD_granulosumdown_gsea, decreasing = T)
 ```
 
-##GO analysis
+###GO analysis
 
 ```{r GO over enrichment}
 DEHC_basalIII_GO <-  enrichGO(gene = DEHC_basalIII, OrgDb = org.Hs.eg.db, universe = background, keyType = 'ENTREZID', ont = "BP", readable = T)
@@ -896,36 +940,36 @@ DEHC_granulosum_GO <-  enrichGO(gene = DEHC_granulosum, OrgDb = org.Hs.eg.db, un
 DEHC_granulosumup_GO <-  enrichGO(gene = DEHC_granulosumup, OrgDb = org.Hs.eg.db, universe = background, keyType = 'ENTREZID', ont = "BP", readable = T)
 DEHC_granulosumdown_GO <-  enrichGO(gene = DEHC_granulosumdown, OrgDb = org.Hs.eg.db, universe = background, keyType = 'ENTREZID', ont = "BP", readable = T)
 
-#save
-list <- list("GO DE HC basal III" = DEHC_basalIII_GO,
-             "GO DE HC basal IIIup" = DEHC_basalIIIup_GO,
-             "GO DE HC basal IIIdown" = DEHC_basalIIIdown_GO,
-             "GO DE HC basal II" = DEHC_basalII_GO,
-             "GO DE HC basal IIup" = DEHC_basalIIup_GO,
-             "GO DE HC basal IIdown" = DEHC_basalIIdown_GO,
-             "GO DE HC basal I" = DEHC_basalI_GO,
-             "GO DE HC basal Iup" = DEHC_basalIup_GO,
-             "GO DE HC basal Idown" = DEHC_basalIdown_GO,
-             "GO DE HC basal IV" = DEHC_basalIV_GO,
-             "GO DE HC basal IVup" = DEHC_basalIVup_GO,
-             "GO DE HC basal IVdown" = DEHC_basalIVdown_GO,
-             "GO DE HC spinosum" = DEHC_spinosum_GO,
-             "GO DE HC spinosumup" = DEHC_spinosumup_GO,
-             "GO DE HC spinosumdown" = DEHC_spinosumdown_GO,
-             "GO DE HC granulosum" = DEHC_granulosum_GO,
-             "GO DE HC granulosumup" = DEHC_granulosumup_GO,
-             "GO DE HC granulosumdown" = DEHC_granulosumdown_GO)
-write.xlsx(list, file = "GO DE HC2.xlsx")
+# #save
+# list <- list("GO DE HC basal III" = DEHC_basalIII_GO,
+#              "GO DE HC basal IIIup" = DEHC_basalIIIup_GO,
+#              "GO DE HC basal IIIdown" = DEHC_basalIIIdown_GO,
+#              "GO DE HC basal II" = DEHC_basalII_GO,
+#              "GO DE HC basal IIup" = DEHC_basalIIup_GO,
+#              "GO DE HC basal IIdown" = DEHC_basalIIdown_GO,
+#              "GO DE HC basal I" = DEHC_basalI_GO,
+#              "GO DE HC basal Iup" = DEHC_basalIup_GO,
+#              "GO DE HC basal Idown" = DEHC_basalIdown_GO,
+#              "GO DE HC basal IV" = DEHC_basalIV_GO,
+#              "GO DE HC basal IVup" = DEHC_basalIVup_GO,
+#              "GO DE HC basal IVdown" = DEHC_basalIVdown_GO,
+#              "GO DE HC spinosum" = DEHC_spinosum_GO,
+#              "GO DE HC spinosumup" = DEHC_spinosumup_GO,
+#              "GO DE HC spinosumdown" = DEHC_spinosumdown_GO,
+#              "GO DE HC granulosum" = DEHC_granulosum_GO,
+#              "GO DE HC granulosumup" = DEHC_granulosumup_GO,
+#              "GO DE HC granulosumdown" = DEHC_granulosumdown_GO)
+# write.xlsx(list, file = "GO DE HC2.xlsx")
 
 ##visualization
-GO_HC_vis <- DEHC_basalIIIup_GO[c(1, 4)]
+GO_HC_vis <- DEHC_basalIup_GO[c(1, 2)] 
 GO_HC_vis <- rbind(GO_HC_vis, DEHC_basalIIup_GO[c(1, 2)])
-GO_HC_vis <- rbind(GO_HC_vis, DEHC_basalIup_GO[c(1, 2)])
+GO_HC_vis <- rbind(GO_HC_vis, DEHC_basalIIIup_GO[c(4, 36)])
 GO_HC_vis <- rbind(GO_HC_vis, DEHC_basalIVup_GO[c(8, 22)])
 GO_HC_vis <- rbind(GO_HC_vis, DEHC_spinosum_GO[c(9, 10)])
 GO_HC_vis <- rbind(GO_HC_vis, DEHC_granulosumup_GO[c(3, 17, 18)])
-GO_HC_vis$celltype <- c(rep("basal III", 2), rep("basal II", 2), rep("basal I", 2), rep("basal IV", 2), rep("spinosum", 2), rep("granulosum", 3))
-GO_HC_vis$celltype <- factor(GO_HC_vis$celltype, levels = c("basal III", "basal II", "basal I", "basal IV", "spinosum", "granulosum"))
+GO_HC_vis$celltype <- c(rep("basal I", 2), rep("basal II", 2), rep("basal III", 2), rep("basal IV", 2), rep("spinosum", 2), rep("granulosum", 3))
+GO_HC_vis$celltype <- factor(GO_HC_vis$celltype, levels = c("basal I", "basal II", "basal III", "basal IV", "spinosum", "granulosum"))
 
 ggplot(GO_HC_vis, aes(x = Count, y = Description)) +
         geom_col(aes(fill = p.adjust)) +
@@ -945,8 +989,8 @@ ggplot(GO_HC_vis, aes(x = Count, y = Description)) +
 #   ggtitle("fold change TCDD vs control", subtitle = "padj < 0.05, background: baseMean > 1, BP & MF & CC together")
 ```
 
-# Functional analysis basal cell types AD
-##Prepare gene lists
+## Functional analysis basal cell types AD
+###Prepare gene lists
 
 ```{r annotate gene symbol with entrezID}
 #annotate all expressed background genes
@@ -1005,7 +1049,7 @@ DEAD_granulosumup <- diffex_ad_svm[diffex_ad_svm$AD_granulosum_p_val_adj < 0.05 
 DEAD_granulosumdown <- diffex_ad_svm[diffex_ad_svm$AD_granulosum_p_val_adj < 0.05 & !is.na(diffex_ad_svm$AD_granulosum_p_val_adj) & diffex_ad_svm$AD_granulosum_avg_log2FC < 0, "entrezID"]
 ```
 
-##GO analysis
+###GO analysis
 
 ```{r GO over enrichment}
 DEAD_basalIII_GO <-  enrichGO(gene = DEAD_basalIII, OrgDb = org.Hs.eg.db, universe = background, keyType = 'ENTREZID', ont = "BP", readable = T)
@@ -1081,8 +1125,8 @@ ggplot(GO_AD_vis, aes(x = Count, y = Description)) +
 #   ggtitle("fold change TCDD vs control", subtitle = "padj < 0.05, background: baseMean > 1, BP & MF & CC together")
 ```
 
-# Functional analysis AD vs HC
-##Prepare gene lists
+## Functional analysis AD vs HC
+###Prepare gene lists
 
 ```{r annotate gene symbol with entrezID}
 #annotate all expressed background genes
@@ -1227,7 +1271,7 @@ names(DEAD_granulosumdown_gsea) <- mapIds(org.Hs.eg.db, keys = rownames(DEAD_gra
 DEAD_granulosumdown_gsea <- sort(DEAD_granulosumdown_gsea, decreasing = T)
 ```
 
-##GO analysis
+###GO analysis
 
 ```{r GO over enrichment}
 DEAD_basalIII_GO <-  enrichGO(gene = DEAD_basalIII, OrgDb = org.Hs.eg.db, universe = background, keyType = 'ENTREZID', ont = "BP", readable = T)
@@ -1476,7 +1520,7 @@ ggplot(GO_basalIV_hc_df[c(8, 18, 4, 24), ], aes(x = ratio, y = reorder(Descripti
         ylab(NULL) + xlab("gene to background ratio")
 ```
 
-##KEGG pathway enrichment
+###KEGG pathway enrichment
 
 ```{r KEGG over enrichment}
 #do KEGG enrichment analysis
@@ -1643,7 +1687,7 @@ list <- list("GSEA KEGG AD basal III " = DEAD_basalIII_gseaKEGG,
 write.xlsx(list, file = "KEGG GSEA logFC 0.1 AD.xlsx")
 ```
 
-##Progeny
+###Progeny
 
 ###Classical progeny pipeline
 
@@ -2506,6 +2550,8 @@ roj_rds$slingPseudotime_1 <- roj_rds_sce$slingPseudotime_1
 ```
 
 ```{r visualize HC and AD on UMAP}
+FeaturePlot(roj_rds,features = c("slingPseudotime_1")) + ggtitle("pseudotime") + scale_color_gradient2(low = "yellow",mid = "yellow",high ="red",na.value = "grey") #x1
+
 #visualize trajectories in HC and AC
 roj_rds_hc <- subset(roj_rds, disease == "HC")
 roj_rds_ad <- subset(roj_rds, disease == "AD")
@@ -2612,6 +2658,8 @@ diffex_trajectory <- readRDS("diffex_trajectory_counts_9knots_varfeaturesONLY.rd
 # saveRDS(diffex_trajectory, file = "diffex_trajectory_counts_9knots_varfeaturesONLY.rds")
 # write.xlsx(diffex_trajectory, file = "diffex_trajectory_counts_9knots_varfeaturesONLY.xlsx")
 ```
+
+## Visualize all highly variable / differentially expressed genes along the pseudotime trajectory 
 
 Now we draw a heatmap to visualize gene expression across the trajectory. We use only the highly variable genes for this that are also differential expressed along the trajectory. !As mentioned, try out if you find high background without change and therefore want to refine the selection!
 
@@ -2746,7 +2794,48 @@ setwd("C:/Users/spare/OneDrive - Radboudumc/Results/KCsinAD/FPcomp/KCinAD")
 saveRDS(heatmap_trajectory_hcad, file = "heatmap_trajectory_hcad.rds")
 ```
 
-```{r quick GO check heatmap HC and AD}
+We see the a big influence of cell cycle genes. We therefore extract clusters of stem cell (before cell cycle) and late epidermal development genes. 
+
+```{r dissect heatmap into early and late epidermal development genes}
+summary(row_order(heatmap_trajectory_hcad))
+
+c1 <- heatmap_hcad[row_order(heatmap_trajectory_hcad)[[1]], ]
+c2 <- heatmap_hcad[row_order(heatmap_trajectory_hcad)[[2]], ]
+c3 <- heatmap_hcad[row_order(heatmap_trajectory_hcad)[[3]], ]
+c4 <- heatmap_hcad[row_order(heatmap_trajectory_hcad)[[4]], ]
+c5 <- heatmap_hcad[row_order(heatmap_trajectory_hcad)[[5]], ]
+c6 <- heatmap_hcad[row_order(heatmap_trajectory_hcad)[[6]], ]
+c7 <- heatmap_hcad[row_order(heatmap_trajectory_hcad)[[7]], ] #k means: $`1`, split: [[1]]
+
+heatmap_hcad_late <- rbind(c1, c2) 
+heatmap_hcad_cc <- rbind(c3, c5, c6) 
+heatmap_hcad_early <- rbind(c4, c7) 
+```
+
+```{r GO check heatmap HC and AD}
+c3_GO <- enrichGO(gene = rownames(c3), OrgDb = org.Hs.eg.db, universe = row.names(roj_rds@assays$RNA@counts), keyType = 'SYMBOL', ont = "ALL", readable = T)
+c3_GOdf <- as.data.frame(c3_GO)
+View(c3_GOdf)
+
+c5_GO <- enrichGO(gene = rownames(c5), OrgDb = org.Hs.eg.db, universe = row.names(roj_rds@assays$RNA@counts), keyType = 'SYMBOL', ont = "ALL", readable = T)
+c5_GOdf <- as.data.frame(c5_GO)
+View(c5_GOdf)
+
+barplot(c5_GO, showCategory = c5_GO$Description[c(1, 2)])
+
+c6_GO <- enrichGO(gene = rownames(c6), OrgDb = org.Hs.eg.db, universe = row.names(roj_rds@assays$RNA@counts), keyType = 'SYMBOL', ont = "ALL", readable = T)
+c6_GOdf <- as.data.frame(c6_GO)
+View(c6_GOdf)
+
+barplot(c6_GO, showCategory = c6_GO$Description[c(1, 2)])
+
+heatmap_hcad_cc_GO <- enrichGO(gene = rownames(heatmap_hcad_cc), OrgDb = org.Hs.eg.db, universe = row.names(roj_rds@assays$RNA@counts), keyType = 'SYMBOL', ont = "ALL", readable = T)
+
+heatmap_hcad_cc_GOdf <- as.data.frame(heatmap_hcad_cc_GO)
+View(heatmap_hcad_cc_GOdf)
+
+barplot(heatmap_hcad_cc_GO, showCategory = heatmap_hcad_cc_GO$Description[c(186, 268)]) #proliferation
+
 c7_GO <- enrichGO(gene = c7, OrgDb = org.Hs.eg.db, universe = row.names(roj_rds@assays$RNA@counts), keyType = 'SYMBOL', ont = "ALL", readable = T)
 
 c7_GOdf <- as.data.frame(c7_GO)
@@ -2757,19 +2846,7 @@ c4_GOdf <- as.data.frame(c4_GO)
 View(c4_GOdf)
 ```
 
-We see the a big influence of cell cycle genes. We therefore extract clusters of stem cell (before cell cycle) and late epidermal development genes. 
-
-```{r dissect heatmap into early and late epidermal development genes}
-summary(row_order(heatmap_trajectory_hcad))
-
-c1 <- heatmap_hcad[row_order(heatmap_trajectory_hcad)[[1]], ]
-c2 <- heatmap_hcad[row_order(heatmap_trajectory_hcad)[[2]], ]
-c4 <- heatmap_hcad[row_order(heatmap_trajectory_hcad)[[4]], ]
-c7 <- heatmap_hcad[row_order(heatmap_trajectory_hcad)[[7]], ] #k means: $`1`, split: [[1]]
-
-heatmap_hcad_late <- rbind(c1, c2) 
-heatmap_hcad_early <- rbind(c4, c7) 
-```
+## Visualize only highly variable / differentially expressed genes early in the pseudotime trajectory 
 
 We now plot early development genes. 
 
@@ -2898,9 +2975,13 @@ ASS1down_GO <- enrichGO(gene = heatmap_hcad_early_ASS1down, OrgDb = org.Hs.eg.db
 ASS1down_GOdf <- as.data.frame(ASS1down_GO)
 View(ASS1down_GOdf)
 
+barplot(ASS1down_GO, showCategory = ASS1down_GO$Description[c(1, 3, 17)])
+
 KRT15down_GO <- enrichGO(gene = heatmap_hcad_early_KRT15down, OrgDb = org.Hs.eg.db, universe = row.names(roj_rds@assays$RNA@counts), keyType = 'SYMBOL', ont = "ALL", readable = T)
 KRT15down_GOdf <- as.data.frame(KRT15down_GO)
 View(KRT15down_GOdf)
+
+barplot(KRT15down_GO, showCategory = KRT15down_GO$Description[c(4, 12)])
 
 Nochange_GO <- enrichGO(gene = heatmap_hcad_early_nochange, OrgDb = org.Hs.eg.db, universe = row.names(roj_rds@assays$RNA@counts), keyType = 'SYMBOL', ont = "ALL", readable = T)
 Nochange_GOdf <- as.data.frame(Nochange_GO)
@@ -2912,7 +2993,33 @@ list <- list("Early_ASS1down" = ASS1down_GO,
              "Early_nochange" = Nochange_GO
              )
 write.xlsx(list, file = "GO Heatmap HCADtrajectory early2.xlsx")
+
+barplot(c5_GO, showCategory = c5_GO$Description[c(1, 2)])
+
+
+
+table("KRT16" %in% c(heatmap_hcad_early_ASS1down, heatmap_hcad_early_nochange))
+table("LY6D" %in% c(heatmap_hcad_early_KRT15down, heatmap_hcad_early_nochange))
+
+IL1R2, DCN
+
+WNT10A, CAV1, WNT4,
+S100A2 -> stress
+S100A10, ITGA6, ITGB1 -> cell adhesion / plasma membrane 
+
+], features = c("CCL2", "POSTN", "IL1R2", "DCN","ID1", "IRF1", "SOCS3")) & theme(legend.position = "right")
+> FeaturePlot(roj_rds[, roj_rds$disease == "AD"], features = c("IGFBP3", "KRT6A", "KRT16", "S100A7", "S100A8", "KRT17", "CASP14", "SERPINB2", "DSG1")) & theme(legend.position = "right")
+
+table(markers[markers$AD__avg_log2FC < 0 & !is.na(markers$AD__avg_log2FC), "gene"] %in% c(heatmap_hcad_early_KRT15down, heatmap_hcad_early_nochange))
+
+markers[markers[markers$AD__avg_log2FC < 0 & !is.na(markers$AD__avg_log2FC), "gene"] %in% c(heatmap_hcad_early_KRT15down), "gene"]
+table(markers[markers$AD__avg_log2FC < 0 & !is.na(markers$AD__avg_log2FC), "gene"] %in% c(heatmap_hcad_early_KRT15down))
+
+"LGALS1" %in% markers[markers$AD__avg_log2FC < 0 & !is.na(markers$AD__avg_log2FC), "gene"]
+"LGALS1" %in% c(heatmap_hcad_early_KRT15down)
 ```
+
+## Visualize only highly variable / differentially expressed genes late in the pseudotime trajectory 
 
 Here we plot late epidermal development genes. 
 
