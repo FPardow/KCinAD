@@ -305,6 +305,12 @@ VlnPlot(roj_rds, group.by = "svm_annotation", features = c("AHR", "ARNT", "CYP1A
 VlnPlot(roj_rds, group.by = "svm_annotation", split.by = "disease", features = c("AHR", "ARNT", "CYP1A1", "CYP1B1"), split.by = "disease", stack = T, flip = T, cols = colors_disease) + theme(axis.title.x = element_blank())
 
 FeaturePlot(roj_rds[, roj_rds$disease == "HC"], features = c("AHR", "CYP1B1"), blend = T, cols = c("red", "blue", "green", "lightgrey")) & theme(legend.position = "right")
+
+VlnPlot(roj_rds, group.by = "svm_annotation", split.by = "disease", features = c("AHR", "ID1", "TCF3", "BMP1", "BMP2", "BMP4"),  stack = T, flip = T, cols = colors_disease) + theme(axis.title.x = element_blank())
+
+VlnPlot(roj_rds, group.by = "svm_annotation", split.by = "disease", features = c("TP63", "ADAM17"),  stack = T, flip = T, cols = colors_disease) + theme(axis.title.x = element_blank())
+
+FeaturePlot(roj_rds, features = c("TP63", "ADAM17"), split.by = "disease") & theme(legend.position = "right")
 ```
 
 ```{r stacked barplot cell type percentage - HC vs AD}
@@ -357,7 +363,7 @@ percentage_df = function(seurat_object, cell_annotation = "seurat_clusters",vari
 
 cell_percentage  <- percentage_df(roj_rds, cell_annotation = "svm_annotation", variable = "disease", facet = F)
 #reorder: 
-cell_percentage$Celltype <- factor(cell_percentage$Celltype, levels = c("basal III", "basal II", "basal I", "basal IV", "stratum spinosum", "stratum granulosum"))
+cell_percentage$Celltype <- factor(cell_percentage$Celltype, levels = c("basal I", "basal II", "basal III", "basal IV", "stratum spinosum", "stratum granulosum"))
 # factor(percentage_df$Celltype)
 cell_percentage$Variable <- factor(cell_percentage$Variable, levels = c("HC", "AD")) 
 # factor(cell_percentage$Variable)
@@ -509,14 +515,6 @@ diffex_ad_svm <- readRDS("C:/Users/spare/OneDrive - Radboudumc/Results/KCsinAD/F
 # write.xlsx(diffex_ad_svm, file = "diffex_ad_svm.xlsx")
 ```
 
-```{r DEanalysis AD KRT15 vs ASS1}
-table(roj_rds$svm_added_anno)
-
-markers <- FindMarkers(roj_rds[, roj_rds$disease == "AD"], group.by = "svm_added_anno", ident.1 = "basal III KRT15+", ident.2 = "basal III ASS1+")
-colnames(markers) <- paste("AD", colnames(markers), sep = "_")
-markers$gene <- rownames(markers)
-```
-
 ```{r DEanalysis global - AD vs HC, svm annotated}
 diffex_ad_hc_svm <- readRDS("C:/Users/spare/OneDrive - Radboudumc/Results/KCsinAD/FPcomp/KCinAD/diffex_ad_hc_svm.rds")
 
@@ -554,8 +552,6 @@ diffex_ad_hc_svm <- readRDS("C:/Users/spare/OneDrive - Radboudumc/Results/KCsinA
 # saveRDS(diffex_ad_hc_svm, file = "diffex_ad_hc_svm.rds")
 # write.xlsx(diffex_ad_hc_svm, file = "diffex_ad_hc_svm.xlsx")
 ```
-
-
 
 # Basal I - IV marker genes
 
@@ -764,7 +760,7 @@ ggplot(phase_percentage, aes(fill = Celltype, y = percentage, x = Variable)) +
 ```
 
 
-# Functional analysis basal cell types
+# Functional analysis 
 ## Functional analysis basal cell types HC
 ###Prepare gene lists
 
@@ -989,6 +985,72 @@ ggplot(GO_HC_vis, aes(x = Count, y = Description)) +
 #   ggtitle("fold change TCDD vs control", subtitle = "padj < 0.05, background: baseMean > 1, BP & MF & CC together")
 ```
 
+###Progeny
+```{r progeny HC}
+objectrds <- roj_rds[, roj_rds$disease == "HC"]
+# objectrds <- objectrds[, objectrds$svm_added_anno == "Basal III KRT15+" | objectrds$svm_added_anno == "Basal III ASS1+"]
+
+Idents(objectrds) <- "svm_annotation"
+
+org <- c("Human")
+features <- 1000
+diffOrder <- c("basal I", "basal II", "basal III", "basal IV", "stratum spinosum", "stratum granulosum")
+pathway_order <- c("JAK-STAT", "WNT", "Estrogen", "MAPK", "VEGF", "EGFR", "PI3K", "Androgen", "TGFb", "TNFa", "NFkB", "Hypoxia", "Trail", "p53")
+
+#data frame assigning identities to each cell
+CellsClusters <- data.frame(
+    Cell = names(Idents(objectrds)),
+    CellType = as.character(Idents(objectrds)),
+    stringsAsFactors = FALSE
+  )
+
+#calculation progeny, added as inactive assay to rds
+objectrds <- progeny(objectrds, scale = F, organism = org, top = features, perm = 1, return_assay = TRUE)
+
+# objectrds@assays$progeny
+
+#We can now directly apply Seurat functions in our Progeny scores, like scaling the pathway activity scores
+objectrds <- Seurat::ScaleData(objectrds, assay = "progeny")
+
+#We transform Progeny scores into a data frame to better handling the results
+progeny_scores_df <- as.data.frame(t(GetAssayData(objectrds, assay = "progeny", slot = "scale.data"))) %>%
+  tibble::rownames_to_column("Cell") %>%
+  tidyr::pivot_longer(names_to = "Pathway", values_to = "Activity", c(-"Cell")) #transforms the table into a longer table format - assigning a separate row for every pathways + coordinating activity per cell
+
+#We match Progeny scores with the cell clusters.
+progeny_scores_df <- inner_join(progeny_scores_df, CellsClusters, by = c("Cell"))
+
+#We summarize the Progeny scores by cell population
+summarized_progeny_scores <- progeny_scores_df %>%
+  group_by(Pathway, CellType) %>%
+  summarise(avg = mean(Activity), std = sd(Activity))
+
+#We prepare the data for the plot
+summarized_progeny_scores_df_HC <- summarized_progeny_scores %>%
+  dplyr::select(-std) %>%
+  tidyr::spread(Pathway, avg) %>%
+  data.frame(row.names = "CellType", check.names = FALSE, stringsAsFactors = FALSE)
+
+summarized_progeny_scores_df_HC <- summarized_progeny_scores_df_HC[diffOrder, ]
+summarized_progeny_scores_df_HC <- summarized_progeny_scores_df_HC[, pathway_order]
+
+#we prepare the plot
+paletteLength = 100
+myColor = colorRampPalette(c("darkgreen", "white", "darkorange"))(paletteLength)
+
+# to get the scale balanced and centered around 0
+progenyBreaks <-  c(
+  seq(min(summarized_progeny_scores_df_HC), 0, length.out = ceiling(paletteLength / 2) + 1),
+  seq(max(summarized_progeny_scores_df_HC) / paletteLength, max(summarized_progeny_scores_df_HC),  length.out = floor(paletteLength / 2)))
+# seq creates a sequence lowest to highest number with length.out determining length of sequence
+
+#we plot
+progeny_hmap <- pheatmap(t(summarized_progeny_scores_df_HC), 
+                        cluster_cols = F, #treeheight_col = 0, 
+                        cluster_rows = F, #treeheight_row = 0, 
+                        color = myColor, breaks = progenyBreaks, border_color = NA,
+                        main =  paste0("PROGENy pathway activity HC"), angle_col = c("45")) #fontsize = 14, fontsize_row = 10
+```
 ## Functional analysis basal cell types AD
 ###Prepare gene lists
 
@@ -1123,6 +1185,72 @@ ggplot(GO_AD_vis, aes(x = Count, y = Description)) +
 #   scale_color_gradient2(name = "fold change", low = "blue", mid = "gray95", high = "red", midpoint = 0,
 #                         limits = c(min(genelist_c31) , max(genelist_c31))) +
 #   ggtitle("fold change TCDD vs control", subtitle = "padj < 0.05, background: baseMean > 1, BP & MF & CC together")
+```
+
+###Progeny
+```{r progeny AD}
+objectrds <- roj_rds[, roj_rds$disease == "AD"]
+
+Idents(objectrds) <- "svm_annotation"
+
+org <- c("Human")
+features <- 1000
+diffOrder <- c("basal I", "basal II", "basal III", "basal IV", "stratum spinosum", "stratum granulosum")
+pathway_order <- c("JAK-STAT", "WNT", "Estrogen", "MAPK", "VEGF", "EGFR", "PI3K", "Androgen", "TGFb", "TNFa", "NFkB", "Hypoxia", "Trail", "p53")
+
+Idents(objectrds) <- "svm_annotation"
+
+#data frame assigning identities to each cell
+CellsClusters <- data.frame(
+    Cell = names(Idents(objectrds)),
+    CellType = as.character(Idents(objectrds)),
+    stringsAsFactors = FALSE
+  )
+
+#calculation progeny, added as inactive assay to rds
+objectrds <- progeny(objectrds, scale = F, organism = org, top = features, perm = 1, return_assay = TRUE)
+
+# objectrds@assays$progeny
+
+#We can now directly apply Seurat functions in our Progeny scores, like scaling the pathway activity scores
+objectrds <- Seurat::ScaleData(objectrds, assay = "progeny")
+
+#We transform Progeny scores into a data frame to better handling the results
+progeny_scores_df <- as.data.frame(t(GetAssayData(objectrds, assay = "progeny", slot = "scale.data"))) %>%
+  tibble::rownames_to_column("Cell") %>%
+  tidyr::pivot_longer(names_to = "Pathway", values_to = "Activity", c(-"Cell")) #transforms the table into a longer table format - assigning a separate row for every pathways + coordinating activity per cell
+
+#We match Progeny scores with the cell clusters.
+progeny_scores_df <- inner_join(progeny_scores_df, CellsClusters, by = c("Cell"))
+
+#We summarize the Progeny scores by cell population
+summarized_progeny_scores <- progeny_scores_df %>%
+  group_by(Pathway, CellType) %>%
+  summarise(avg = mean(Activity), std = sd(Activity))
+
+#We prepare the data for the plot
+summarized_progeny_scores_df_AD <- summarized_progeny_scores %>%
+  dplyr::select(-std) %>%
+  tidyr::spread(Pathway, avg) %>%
+  data.frame(row.names = "CellType", check.names = FALSE, stringsAsFactors = FALSE)
+
+summarized_progeny_scores_df_AD <- summarized_progeny_scores_df_AD[diffOrder, ]
+summarized_progeny_scores_df_AD <- summarized_progeny_scores_df_AD[ , pathway_order]
+
+paletteLength = 100
+myColor = colorRampPalette(c("darkgreen", "white", "darkorange"))(paletteLength)
+
+#to get the scale balanced and centered around 0
+progenyBreaks = c(
+ seq(min(summarized_progeny_scores_df_AD), 0, length.out = ceiling(paletteLength / 2) + 1),
+ seq(max(summarized_progeny_scores_df_AD) / paletteLength, max(summarized_progeny_scores_df_AD),  length.out = floor(paletteLength / 2)))
+# seq creates a sequence lowest to highest number with length.out determining length of sequence
+
+progeny_hmap <- pheatmap(t(summarized_progeny_scores_df_AD), 
+                        cluster_cols = F, #treeheight_col = 0, 
+                        cluster_rows = F, #treeheight_row = 0, 
+                        color = myColor, breaks = progenyBreaks, border_color = NA,
+                        main =  paste0("PROGENy pathway activity AD"), angle_col = c("45")) #fontsize = 14, fontsize_row = 10
 ```
 
 ## Functional analysis AD vs HC
@@ -1757,18 +1885,15 @@ progeny_hmap <- pheatmap(t(summarized_progeny_scores_df),
                          main =  paste0("PROGENy (", features , " features)"), fontsize = 14, fontsize_row = 10, angle_col = 45)
 ```
 
-###Progeny comparison AD and HC separately analyzed
-
-```{r progeny HC}
-objectrds <- roj_rds[, roj_rds$disease == "HC"]
-# objectrds <- objectrds[, objectrds$svm_added_anno == "Basal III KRT15+" | objectrds$svm_added_anno == "Basal III ASS1+"]
-
-Idents(objectrds) <- "svm_annotation"
+```{r progeny KRT15 vs ASS1}
+objectrds <- roj_rds[, roj_rds$disease == "AD"]
+# objectrds <- objectrds[, objectrds$svm_added_anno == "basal III KRT15+" | objectrds$svm_added_anno == "basal III ASS1+"]
+Idents(objectrds) <- "svm_added_anno"
 
 org <- c("Human")
-features <- 1000
-diffOrder <- c("basal III", "basal II", "basal I", "basal IV", "stratum spinosum", "stratum granulosum")
-pathway_order <- c("Estrogen", "MAPK", "VEGF", "EGFR", "PI3K", "Trail", "p53", "Androgen", "JAK-STAT", "WNT", "TNFa", "NFkB", "TGFb", "Hypoxia")
+features <- 2000
+# diffOrder <- c("basal III ", "basal II", "basal I", "basal IV", "stratum spinosum", "stratum granulosum")
+# pathway_order <- c("Estrogen", "MAPK", "VEGF", "EGFR", "PI3K", "JAK-STAT", "WNT", 'Androgen', 'TGFb', 'NFkB', 'TNFa', "p53", "Hypoxia", "Trail")
 
 #data frame assigning identities to each cell
 CellsClusters <- data.frame(
@@ -1779,7 +1904,7 @@ CellsClusters <- data.frame(
 
 #calculation progeny, added as inactive assay to rds
 objectrds <- progeny(objectrds, scale = F, organism = org, top = features, perm = 1, return_assay = TRUE)
-
+  
 # objectrds@assays$progeny
 
 #We can now directly apply Seurat functions in our Progeny scores, like scaling the pathway activity scores
@@ -1788,24 +1913,24 @@ objectrds <- Seurat::ScaleData(objectrds, assay = "progeny")
 #We transform Progeny scores into a data frame to better handling the results
 progeny_scores_df <- as.data.frame(t(GetAssayData(objectrds, assay = "progeny", slot = "scale.data"))) %>%
   tibble::rownames_to_column("Cell") %>%
-  tidyr::pivot_longer(names_to = "Pathway", values_to = "Activity", c(-"Cell")) #transforms the table into a longer table format - assigning a separate row for every pathways + coordinating activity per cell
-
+  tidyr::pivot_longer(names_to = "Pathway", values_to = "Activity", c(-"Cell")) #transforms the table into a longer table format - assigning a separate row for every pathways + coordinating activity per cell 
+  
 #We match Progeny scores with the cell clusters.
 progeny_scores_df <- inner_join(progeny_scores_df, CellsClusters, by = c("Cell"))
-
+  
 #We summarize the Progeny scores by cell population
 summarized_progeny_scores <- progeny_scores_df %>%
   group_by(Pathway, CellType) %>%
   summarise(avg = mean(Activity), std = sd(Activity))
 
 #We prepare the data for the plot
-summarized_progeny_scores_df_HC <- summarized_progeny_scores %>%
-  dplyr::select(-std) %>%
+summarized_progeny_scores_df <- summarized_progeny_scores %>%
+  dplyr::select(-std) %>%   
   tidyr::spread(Pathway, avg) %>%
-  data.frame(row.names = "CellType", check.names = FALSE, stringsAsFactors = FALSE)
+  data.frame(row.names = "CellType", check.names = FALSE, stringsAsFactors = FALSE) 
 
-summarized_progeny_scores_df_HC <- summarized_progeny_scores_df_HC[diffOrder, ]
-summarized_progeny_scores_df_HC <- summarized_progeny_scores_df_HC[, pathway_order]
+# summarized_progeny_scores_df <- summarized_progeny_scores_df[order(diffOrder), ]
+# summarized_progeny_scores_df_HC <- summarized_progeny_scores_df_HC[ , order(pathway_order)]
 
 #we prepare the plot
 paletteLength = 100
@@ -1813,80 +1938,20 @@ myColor = colorRampPalette(c("darkgreen", "white", "darkorange"))(paletteLength)
 
 # to get the scale balanced and centered around 0
 progenyBreaks <-  c(
-  seq(min(summarized_progeny_scores_df_HC), 0, length.out = ceiling(paletteLength / 2) + 1),
-  seq(max(summarized_progeny_scores_df_HC) / paletteLength, max(summarized_progeny_scores_df_HC),  length.out = floor(paletteLength / 2)))
+  seq(min(summarized_progeny_scores_df), 0, length.out = ceiling(paletteLength / 2) + 1),
+  seq(max(summarized_progeny_scores_df) / paletteLength, max(summarized_progeny_scores_df),  length.out = floor(paletteLength / 2)))
 # seq creates a sequence lowest to highest number with length.out determining length of sequence
 
 #we plot
-progeny_hmap <- pheatmap(t(summarized_progeny_scores_df_HC), 
-                        cluster_cols = F, #treeheight_col = 0, 
-                        cluster_rows = F, #treeheight_row = 0, 
-                        color = myColor, breaks = progenyBreaks, border_color = NA,
-                        main =  paste0("PROGENy pathway activity HC"), angle_col = 45) #fontsize = 14, fontsize_row = 10
+progeny_hmap <- pheatmap(t(summarized_progeny_scores_df),
+                         color = myColor, breaks = progenyBreaks,
+                         cluster_cols = F, treeheight_col = 0, cluster_rows = T, treeheight_row = 0, 
+                         border_color = NA, 
+                         main =  paste0("PROGENy (", features , " features)"), fontsize = 14, fontsize_row = 10, angle_col = c("45"))
+progeny_hmap
 ```
 
-```{r progeny AD}
-objectrds <- roj_rds[, roj_rds$disease == "AD"]
-
-Idents(objectrds) <- "svm_annotation"
-
-org <- c("Human")
-features <- 1000
-# diffOrder <- c("basal III ", "basal II", "basal I", "basal IV", "stratum spinosum", "stratum granulosum")
-# pathway_order <- c("Estrogen", "MAPK", "VEGF", "EGFR", "PI3K", "Trail", "p53", "Androgen", "JAK-STAT", "WNT", "TNFa", "NFkB", "TGFb", "Hypoxia")
-
-#data frame assigning identities to each cell
-CellsClusters <- data.frame(
-    Cell = names(Idents(objectrds)),
-    CellType = as.character(Idents(objectrds)),
-    stringsAsFactors = FALSE
-  )
-
-#calculation progeny, added as inactive assay to rds
-objectrds <- progeny(objectrds, scale = F, organism = org, top = features, perm = 1, return_assay = TRUE)
-
-# objectrds@assays$progeny
-
-#We can now directly apply Seurat functions in our Progeny scores, like scaling the pathway activity scores
-objectrds <- Seurat::ScaleData(objectrds, assay = "progeny")
-
-#We transform Progeny scores into a data frame to better handling the results
-progeny_scores_df <- as.data.frame(t(GetAssayData(objectrds, assay = "progeny", slot = "scale.data"))) %>%
-  tibble::rownames_to_column("Cell") %>%
-  tidyr::pivot_longer(names_to = "Pathway", values_to = "Activity", c(-"Cell")) #transforms the table into a longer table format - assigning a separate row for every pathways + coordinating activity per cell
-
-#We match Progeny scores with the cell clusters.
-progeny_scores_df <- inner_join(progeny_scores_df, CellsClusters, by = c("Cell"))
-
-#We summarize the Progeny scores by cell population
-summarized_progeny_scores <- progeny_scores_df %>%
-  group_by(Pathway, CellType) %>%
-  summarise(avg = mean(Activity), std = sd(Activity))
-
-#We prepare the data for the plot
-summarized_progeny_scores_df_AD <- summarized_progeny_scores %>%
-  dplyr::select(-std) %>%
-  tidyr::spread(Pathway, avg) %>%
-  data.frame(row.names = "CellType", check.names = FALSE, stringsAsFactors = FALSE)
-
-summarized_progeny_scores_df_AD <- summarized_progeny_scores_df_AD[diffOrder, ]
-summarized_progeny_scores_df_AD <- summarized_progeny_scores_df_AD[ , pathway_order]
-
-paletteLength = 100
-myColor = colorRampPalette(c("darkgreen", "white", "darkorange"))(paletteLength)
-
-#to get the scale balanced and centered around 0
-progenyBreaks = c(
- seq(min(summarized_progeny_scores_df_AD), 0, length.out = ceiling(paletteLength / 2) + 1),
- seq(max(summarized_progeny_scores_df_AD) / paletteLength, max(summarized_progeny_scores_df_AD),  length.out = floor(paletteLength / 2)))
-# seq creates a sequence lowest to highest number with length.out determining length of sequence
-
-progeny_hmap <- pheatmap(t(summarized_progeny_scores_df_AD), 
-                        cluster_cols = F, #treeheight_col = 0, 
-                        cluster_rows = F, #treeheight_row = 0, 
-                        color = myColor, breaks = progenyBreaks, border_color = NA,
-                        main =  paste0("PROGENy pathway activity AD"), angle_col = 45) #fontsize = 14, fontsize_row = 10
-```
+###Progeny comparison AD and HC separately analyzed
 
 This is not a good way to do it because it masks systemic differences between AD and HC because both analysis are centered within themselves. 
 
@@ -1997,8 +2062,8 @@ Comparing this way is much better, i talked with Sybren and here the pathway act
 
 ```{r progeny together}
 pathway_features <- 2000
-colorder <- c("HC_basal III", "HC_basal II", "HC_basal I", "HC_basal IV", "HC_stratum spinosum", "HC_stratum granulosum", "AD_basal III", "AD_basal II", "AD_basal I", "AD_basal IV", "AD_stratum spinosum", "AD_stratum granulosum")
-pathway_order <- c("JAK-STAT", "TNFa", "NFkB", "Estrogen", "MAPK", "VEGF", "EGFR", "PI3K", "Androgen", "p53", "TGFb", "Trail", "Hypoxia", "WNT")
+colorder <- c("HC_basal I", "HC_basal II", "HC_basal III", "HC_basal IV", "HC_stratum spinosum", "HC_stratum granulosum", "AD_basal I", "AD_basal II", "AD_basal III", "AD_basal IV", "AD_stratum spinosum", "AD_stratum granulosum")
+pathway_order <- c("JAK-STAT", "TNFa", "NFkB", "WNT", "Estrogen", "MAPK", "VEGF", "EGFR", "PI3K", "Trail", "Hypoxia", "p53","TGFb", "Androgen")
 
 objectrds <- roj_rds
 Idents(objectrds) <-  paste0(objectrds$disease,"_",objectrds$svm_annotation)
@@ -2045,7 +2110,7 @@ Idents(objectrds) <-  paste0(objectrds$disease,"_",objectrds$svm_annotation)
     data.frame(row.names = "CellType", check.names = FALSE, stringsAsFactors = FALSE)
   
   summarized_progeny_scores_df <- summarized_progeny_scores_df[colorder, ]
-  summarized_progeny_scores_df <- summarized_progeny_scores_df[, pathway_order, ]
+  summarized_progeny_scores_df <- summarized_progeny_scores_df[ , pathway_order]
   
   # #we prepare the plot
   # nr = nrow(summarized_progeny_scores_df) / 2
@@ -2065,7 +2130,7 @@ Idents(objectrds) <-  paste0(objectrds$disease,"_",objectrds$svm_annotation)
   #we plot
   progeny_hmap <- pheatmap(t(summarized_progeny_scores_df),
                            fontsize = 12, fontsize_row = 9, 
-                           cluster_rows = F, cluster_cols = F, angle_col = 45, treeheight_col = 0,  border_color = NA, 
+                           cluster_rows = F, cluster_cols = F, angle_col = c("45"), treeheight_col = 0,  border_color = NA, 
                            color = myColor, breaks = progenyBreaks, 
                            main =  paste0("PROGENy pathway activity"))
 ```
@@ -2846,7 +2911,7 @@ c4_GOdf <- as.data.frame(c4_GO)
 View(c4_GOdf)
 ```
 
-## Visualize only highly variable / differentially expressed genes early in the pseudotime trajectory 
+## [...] early in the pseudotime trajectory 
 
 We now plot early development genes. 
 
@@ -2967,59 +3032,112 @@ c3 <- heatmap_hcad_early[row_order(heatmap_trajectory_hcad_early)[[3]], ]
 c4 <- heatmap_hcad_early[row_order(heatmap_trajectory_hcad_early)[[4]], ]
 c5 <- heatmap_hcad_early[row_order(heatmap_trajectory_hcad_early)[[5]], ] 
 
-heatmap_hcad_early_ASS1down <- c(rownames(c1), rownames(c2))
-heatmap_hcad_early_KRT15down <- c(rownames(c4), rownames(c5))
+heatmap_hcad_early_downKRT15 <- c(rownames(c4), rownames(c5))
+heatmap_hcad_early_downASS1 <- c(rownames(c1), rownames(c2))
 heatmap_hcad_early_nochange <- c(rownames(c3))
 
-ASS1down_GO <- enrichGO(gene = heatmap_hcad_early_ASS1down, OrgDb = org.Hs.eg.db, universe = row.names(roj_rds@assays$RNA@counts), keyType = 'SYMBOL', ont = "ALL", readable = T)
-ASS1down_GOdf <- as.data.frame(ASS1down_GO)
-View(ASS1down_GOdf)
+downKRT15_GO <- enrichGO(gene = heatmap_hcad_early_downKRT15, OrgDb = org.Hs.eg.db, universe = row.names(roj_rds@assays$RNA@counts), keyType = 'SYMBOL', ont = "ALL", readable = T)
+downKRT15_GOdf <- as.data.frame(downKRT15_GO)
+View(downKRT15_GOdf)
 
-barplot(ASS1down_GO, showCategory = ASS1down_GO$Description[c(1, 3, 17)])
+barplot(downKRT15_GO, showCategory = downKRT15_GO$Description[c(4, 12)])
 
-KRT15down_GO <- enrichGO(gene = heatmap_hcad_early_KRT15down, OrgDb = org.Hs.eg.db, universe = row.names(roj_rds@assays$RNA@counts), keyType = 'SYMBOL', ont = "ALL", readable = T)
-KRT15down_GOdf <- as.data.frame(KRT15down_GO)
-View(KRT15down_GOdf)
+downASS1_GO <- enrichGO(gene = heatmap_hcad_early_downASS1, OrgDb = org.Hs.eg.db, universe = row.names(roj_rds@assays$RNA@counts), keyType = 'SYMBOL', ont = "ALL", readable = T)
+downASS1_GOdf <- as.data.frame(downASS1_GO)
+View(downASS1_GOdf)
 
-barplot(KRT15down_GO, showCategory = KRT15down_GO$Description[c(4, 12)])
+barplot(downASS1_GO, showCategory = downASS1_GO$Description[c(1, 3, 17)])
 
 Nochange_GO <- enrichGO(gene = heatmap_hcad_early_nochange, OrgDb = org.Hs.eg.db, universe = row.names(roj_rds@assays$RNA@counts), keyType = 'SYMBOL', ont = "ALL", readable = T)
 Nochange_GOdf <- as.data.frame(Nochange_GO)
 View(Nochange_GOdf)
 
+barplot(Nochange_GO, showCategory = Nochange_GO$Description[c(1)])
+
 #save
-list <- list("Early_ASS1down" = ASS1down_GO,
-             "Early_KRT15down" = KRT15down_GO,
+list <- list("Early_downKRT15" = downKRT15_GO,
+             "Early_downASS1" = downASS1_GO,
              "Early_nochange" = Nochange_GO
              )
 write.xlsx(list, file = "GO Heatmap HCADtrajectory early2.xlsx")
 
-barplot(c5_GO, showCategory = c5_GO$Description[c(1, 2)])
+HCAD_early_GO <- downASS1_GO[c(1, 3, 17)]
+HCAD_early_GO <- rbind(HCAD_early_GO, downKRT15_GO[c(4, 12)])
+HCAD_early_GO <- rbind(HCAD_early_GO, Nochange_GO[c(1)])
+
+HCAD_early_GO$celltype <- c(rep("cluster 1, 2", 3), rep("downregulated KRT15+", 2), rep("cluster 3", 1))
+HCAD_early_GO$celltype <- factor(HCAD_early_GO$celltype, levels = c("cluster 1, 2", "cluster 4, 5", "cluster 3"))
+
+ggplot(HCAD_early_GO, aes(x = Count, y = Description)) +
+        geom_col(aes(fill = p.adjust)) +
+        facet_grid("celltype", scale ="free") +
+        scale_fill_gradient(high = "blue", low = "red", guide = guide_colourbar(reverse = TRUE)) +
+        theme_bw(base_size = 13) + theme(axis.text.y = element_text(size = 13)) +
+        ylab(NULL) + xlab("count")
+```
+
+```{r check if those groups fit the KRT15 / ASS1}
+# heatmap_hcad_early_downASS1 = c1, c2 -> KRT15
+# heatmap_hcad_early_downKRT15 = C4, C5 -> ASS1
+
+#KRT15 markers
+# table(heatmap_hcad_early_downASS1 %in% markers[markers$AD_avg_log2FC > 0, "gene"])
+table(heatmap_hcad_early_downASS1 %in% diffex_ad_basalIII[diffex_ad_basalIII$AD_avg_log2FC > 0, "gene"])
+length(diffex_ad_basalIII[diffex_ad_basalIII$AD_avg_log2FC > 0, "gene"])
+# table(heatmap_hcad_early_nochange %in% markers[markers$AD_avg_log2FC > 0, "gene"])
+# table(c(heatmap_hcad_early_downASS1, heatmap_hcad_early_nochange) %in% markers[markers$AD_avg_log2FC > 0, "gene"])
+KRT15_marker <- heatmap_hcad_early_downASS1[heatmap_hcad_early_downASS1 %in% markers[markers$AD_avg_log2FC > 0, "gene"]]
+KRT15_marker <- append(KRT15_marker, heatmap_hcad_early_nochange[heatmap_hcad_early_nochange %in% markers[markers$AD_avg_log2FC > 0, "gene"]])
+
+roj_rds_AD_KRT15 <- roj_rds[ , roj_rds$disease == "AD" & roj_rds$svm_added_anno == "basal III KRT15+"]
+
+counts_sum <- rowSums(roj_rds_AD_KRT15@assays[["RNA"]])
+background <- rownames(roj_rds_AD_KRT15@assays[["RNA"]][counts_sum > 1])
+
+KRT15_marker_GO <- enrichGO(KRT15_marker, OrgDb = org.Hs.eg.db, universe = row.names(roj_rds@assays$RNA@counts), keyType = 'SYMBOL', ont = "ALL", readable = T)
+KRT15_marker_GO <- as.data.frame(KRT15_marker_GO)
+View(KRT15_marker_GO)
+
+# TGFB: JUN/SPRY2/SPRY1/FOS/DKK3
+#response to xenobiotic stimulus: TXNIP/JUN/FOS/ALDH3A1/ITGA2
+# 
+# candidate_KRT15 <- c("KRT15", "SMOC2", "DCN", "SPRY2", "SPRY1", "DKK3", "IL1R2", "LTF", "KREMEN2", "TXNIP", "EGR2",  "TMEM173", "SERTAD4",  "BIRC3", "ARHGAP29",  "BIRC3", "ADAMTS4", "CXCL2", "ALDH3A1", "ITGA2", "ARL4C")
+
+FeaturePlot(roj_rds, features = c("KRT15",  "IL1R2", "SPRY1", "TXNIP"), split.by = "disease") 
+#"TXNIP", "SMOC2" "SPRY1"
+#"ALDH3A1"
+#"DCN", "ITGA2"
+#"TMEM173", "KREMEN2", 
+
+#ASS1 markers
+table(heatmap_hcad_early_downKRT15 %in% markers[markers$AD_avg_log2FC < 0, "gene"])
+table(heatmap_hcad_early_downKRT15 %in% diffex_ad_basalIII[diffex_ad_basalIII$AD_avg_log2FC < 0, "gene"])
+
+roj_rds_AD_ASS1 <- roj_rds[ , roj_rds$disease == "AD" & roj_rds$svm_added_anno == "basal III ASS1+"]
+
+counts_sum <- rowSums(roj_rds_AD_ASS1@assays[["RNA"]])
+background <- rownames(roj_rds_AD_ASS1@assays[["RNA"]][counts_sum > 1])
+
+table(heatmap_hcad_early_nochange %in% markers[markers$AD_avg_log2FC < 0, "gene"])
+ASS1_marker <- heatmap_hcad_early_downKRT15[heatmap_hcad_early_downKRT15 %in% markers[markers$AD_avg_log2FC < 0, "gene"]]
+ASS1_marker <- append(ASS1_marker, heatmap_hcad_early_nochange[heatmap_hcad_early_nochange %in% markers[markers$AD_avg_log2FC < 0, "gene"]])
 
 
 
-table("KRT16" %in% c(heatmap_hcad_early_ASS1down, heatmap_hcad_early_nochange))
-table("LY6D" %in% c(heatmap_hcad_early_KRT15down, heatmap_hcad_early_nochange))
+ASS1_marker <- enrichGO(ASS1_marker, OrgDb = org.Hs.eg.db, universe = row.names(roj_rds@assays$RNA@counts), keyType = 'SYMBOL', ont = "ALL", readable = T)
+ASS1_marker <- as.data.frame(ASS1_marker)
+View(ASS1_marker)
 
-IL1R2, DCN
-
+FeaturePlot(roj_rds, features = c("ASS1", "SPON2"), split.by = "disease") 
+"ADIRF"
 WNT10A, CAV1, WNT4,
 S100A2 -> stress
 S100A10, ITGA6, ITGB1 -> cell adhesion / plasma membrane 
 
-], features = c("CCL2", "POSTN", "IL1R2", "DCN","ID1", "IRF1", "SOCS3")) & theme(legend.position = "right")
-> FeaturePlot(roj_rds[, roj_rds$disease == "AD"], features = c("IGFBP3", "KRT6A", "KRT16", "S100A7", "S100A8", "KRT17", "CASP14", "SERPINB2", "DSG1")) & theme(legend.position = "right")
-
-table(markers[markers$AD__avg_log2FC < 0 & !is.na(markers$AD__avg_log2FC), "gene"] %in% c(heatmap_hcad_early_KRT15down, heatmap_hcad_early_nochange))
-
-markers[markers[markers$AD__avg_log2FC < 0 & !is.na(markers$AD__avg_log2FC), "gene"] %in% c(heatmap_hcad_early_KRT15down), "gene"]
-table(markers[markers$AD__avg_log2FC < 0 & !is.na(markers$AD__avg_log2FC), "gene"] %in% c(heatmap_hcad_early_KRT15down))
-
-"LGALS1" %in% markers[markers$AD__avg_log2FC < 0 & !is.na(markers$AD__avg_log2FC), "gene"]
-"LGALS1" %in% c(heatmap_hcad_early_KRT15down)
+FeaturePlot(roj_rds, features = c("KRT15", "SPON2", "ASS1", "IL1R2"), split.by = "disease") 
 ```
 
-## Visualize only highly variable / differentially expressed genes late in the pseudotime trajectory 
+## [...] late in the pseudotime trajectory 
 
 Here we plot late epidermal development genes. 
 
@@ -3096,36 +3214,39 @@ dev.off()
 ```
 
 ```{r heatmap late devlopment}
-# setwd("C:/Users/spare/OneDrive - Radboudumc/Results/KCsinAD/FPcomp/KCinAD")
-# heatmap_trajectory_hcad_late <- readRDS("heatmap_trajectory_hcad_late9.rds")
+setwd("C:/Users/spare/OneDrive - Radboudumc/Results/KCsinAD/FPcomp/KCinAD")
+heatmap_trajectory_hcad_late <- readRDS("heatmap_trajectory_hcad_late9.rds")
 
-annot_celltype_hcad <- HeatmapAnnotation(
-  celltype = c(svm_annotation_hc, svm_annotation_ad),
-  col = list(celltype = colors_subtypes),
-  show_annotation_name = T
-  )
+# annot_celltype_hcad <- HeatmapAnnotation(
+#   celltype = c(svm_annotation_hc, svm_annotation_ad),
+#   col = list(celltype = colors_subtypes),
+#   show_annotation_name = T
+#   )
+# 
+# genes_to_anno_hclate <- c("KRT1", "KRT10", "GRHL3","DSC1", "DSG1", "FLG", "IVL", "LOR")
+# 
+# #annotate genes of interest
+# annot_genes_hcelate <- HeatmapAnnotation(
+#   GeneOfInterest = anno_mark(at = match(genes_to_anno_hclate, rownames(heatmap_hcad_late)),
+#                              labels = genes_to_anno_hclate),
+#   which = "row"
+#   )
+# 
+# heatmap_trajectory_hcad_late9 <- draw(
+#   Heatmap(heatmap_hcad_late, top_annotation = annot_celltype_hcad, right_annotation = annot_genes_hcelate,
+#           col = colorRamp2(c(min(heatmap_ad), 0, max(heatmap_ad)), c("blue", "lightyellow", "red")),
+#           name = "z-score", k = 5, row_km_repeats = 3, cluster_columns  = F,
+#           row_dend_reorder = F, cluster_rows = T, cluster_row_slices = F,
+#           row_title_rot = 0, show_row_names = F, show_column_names = F)
+# )
+# 
+# heatmap_trajectory_hcad_late <- heatmap_trajectory_hcad_late9
 
-genes_to_anno_hclate <- c("KRT1", "KRT10", "GRHL3","DSC1", "DSG1", "FLG", "IVL", "LOR")
+setwd("C:/Users/spare/OneDrive - Radboudumc/Results/KCsinAD/FPcomp/KCinAD")
+saveRDS(object = heatmap_trajectory_hcad_late9, file = "heatmap_trajectory_hcad_late9.rds")
 
-#annotate genes of interest
-annot_genes_hcelate <- HeatmapAnnotation(
-  GeneOfInterest = anno_mark(at = match(genes_to_anno_hclate, rownames(heatmap_hcad_late)),
-                             labels = genes_to_anno_hclate),
-  which = "row"
-  )
-
-heatmap_trajectory_hcad_late9 <- draw(
-  Heatmap(heatmap_hcad_late, top_annotation = annot_celltype_hcad, right_annotation = annot_genes_hcelate,
-          col = colorRamp2(c(min(heatmap_ad), 0, max(heatmap_ad)), c("blue", "lightyellow", "red")),
-          name = "z-score", k = 5, row_km_repeats = 3, cluster_columns  = F,
-          row_dend_reorder = F, cluster_rows = T, cluster_row_slices = F,
-          row_title_rot = 0, show_row_names = F, show_column_names = F)
-)
-
-heatmap_trajectory_hcad_late <- heatmap_trajectory_hcad_late9
-
-# setwd("C:/Users/spare/OneDrive - Radboudumc/Results/KCsinAD/FPcomp/KCinAD")
-# saveRDS(object = heatmap_trajectory_hcad_late9, file = "heatmap_trajectory_hcad_late9.rds")
+heatmap_hcad_late$gene <- rownames(heatmap_hcad_late)
+View(heatmap_hcad_late)
 ```
 
 ```{r GO over enrichment trajectory genes - late}
@@ -3183,7 +3304,7 @@ I want to increase the UMAP cluster resolution in a way that I can separate KRT1
 roj_rds <-  readRDS("C:/Users/spare/OneDrive - Radboudumc/Results/KCsinAD/Ward_TP63inAD_compWork/roj_rds_v3_rem1000f.rds")
 
 #Isolate basal 3 cluster
-basal3_dake <- subset(roj_rds,ident = "BASAL III")
+basal3_dake <- subset(roj_rds,ident = "basal III")
 
 #Calculate UMAP (10 PCs) using disease integrated data
 DefaultAssay(basal3_dake) = "integrated"
@@ -3239,7 +3360,7 @@ Idents(roj_rds) <- "svm_added_anno"
 DimPlot(roj_rds[, roj_rds$disease == "HC"], cols = colors_subtypesBasIII, repel = T,  label = T,  label.box = T) + NoLegend()
 ```
 
-##Differences basal III subtypes - HC
+## Differences basal III subtypes - HC
 
 ```{r DEanalysis global - HC markers, KRT15/ASS1 separated}
 diffex_hc_svmadd <- readRDS("C:/Users/spare/OneDrive - Radboudumc/Results/KCsinAD/FPcomp/KCinAD/diffex_hc_svmadd.rds")
@@ -3426,6 +3547,59 @@ OLD:
 
 ## Differences basal III subtypes - checking changes in AD (HC vs AD)
 
+
+```{r}
+roj_rds[, roj_rds$disease == "AD"] <- roj_rds[ , roj_rds$disease == "AD" & roj_rds$svm_added_anno == "basal III KRT15+"]
+
+#what to filter out
+AD_KRT15 <- roj_rds[ , roj_rds$disease == "AD" & !is.na(roj_rds$svm_added_anno) & roj_rds$svm_added_anno == "basal III KRT15+"]
+length(colnames(AD_KRT15))
+
+AD_ASS1 <- roj_rds[ , roj_rds$disease == "AD" & !is.na(roj_rds$svm_added_anno) & roj_rds$svm_added_anno == "basal III ASS1+"]
+length(colnames(AD_ASS1))
+
+table(roj_rds_ad$svm_annotation == "basal III")
+
+#filter out 
+rojs_rds_AD_KRT15 <- roj_rds[ , !colnames(roj_rds) %in% colnames(AD_ASS1)]
+rojs_rds_AD_ASS1 <- roj_rds[ , !colnames(roj_rds) %in% colnames(AD_KRT15)]
+```
+
+```{r changes basal III HC to KRT15+ cells  in AD}
+change_krt15 <- FindMarkers(rojs_rds_AD_KRT15, group.by = "disease", subset.ident = "basal III", ident.1 = "AD", ident.2 = "HC") #comparison of KRT15+ changes in AD compared to HC, log2FC up means more expressed in first group (AD)
+change_krt15$gene <- rownames(change_krt15)
+
+change_krt15_GO <- enrichGO(change_krt15[change_krt15$avg_log2FC > 0, "gene"], OrgDb = org.Hs.eg.db, universe = row.names(roj_rds@assays$RNA@counts), keyType = 'SYMBOL', ont = "ALL", readable = T)
+change_krt15_GOdf <- as.data.frame(change_krt15_GO)
+View(change_krt15_GOdf)
+
+change_krt15_GOdown <- enrichGO(change_krt15[change_krt15$avg_log2FC < 0, "gene"], OrgDb = org.Hs.eg.db, universe = row.names(roj_rds@assays$RNA@counts), keyType = 'SYMBOL', ont = "ALL", readable = T)
+change_krt15_GOdowndf <- as.data.frame(change_krt15_GOdown)
+View(change_krt15_GOdowndf)
+
+```
+
+
+```{r}
+change_ass1 <- FindMarkers(rojs_rds_AD_ASS1, group.by = "disease", subset.ident = "basal III", ident.1 = "AD", ident.2 = "HC") #comparison of KRT15+ changes in AD compared to HC, log2FC up means more expressed in first group (AD)
+change_ass1$gene <- rownames(change_ass1)
+
+change_ass1_GOup <- enrichGO(change_ass1[change_ass1$avg_log2FC > 0, "gene"], OrgDb = org.Hs.eg.db, universe = row.names(roj_rds@assays$RNA@counts), keyType = 'SYMBOL', ont = "ALL", readable = T)
+change_ass1_GOupdf <- as.data.frame(change_ass1_GOup)
+View(change_ass1_GOupdf)
+
+change_ass1_GOdown <- enrichGO(change_ass1[change_ass1$avg_log2FC < 0, "gene"], OrgDb = org.Hs.eg.db, universe = row.names(roj_rds@assays$RNA@counts), keyType = 'SYMBOL', ont = "ALL", readable = T)
+change_ass1_GOdowndf <- as.data.frame(change_ass1_GOdown)
+View(change_ass1_GOdowndf)
+
+
+heatmap_hcad_early_downASS1[heatmap_hcad_early_downASS1 %in% change_ass1[change_ass1$avg_log2FC < 0, "gene"]]
+heatmap_hcad_early_downASS1[heatmap_hcad_early_downASS1 %in% change_ass1[change_ass1$avg_log2FC > 0, "gene"]]
+
+table(heatmap_hcad_early_downKRT15 %in% change_ass1[change_ass1$avg_log2FC > 0, "gene"])
+```
+
+
 ```{r DEanalysis comparison HC vs AD}
 #complete
 changeAD <- FindMarkers(roj_rds, group.by = "disease", ident.1 = "AD", ident.2 = "HC") 
@@ -3501,6 +3675,71 @@ diffex_ad_hc_svmadd <- readRDS("C:/Users/spare/OneDrive - Radboudumc/Results/KCs
 # write.xlsx(diffex_ad_svmadd, file = "diffex_ad_svmadd.xlsx")
 ```
 
+```{r progeny AD}
+objectrds <- roj_rds[, roj_rds$disease == "AD"]
+
+Idents(objectrds) <- "svm_added_anno"
+
+org <- c("Human")
+features <- 1000
+# diffOrder <- c("basal I", "basal II", "basal III", "basal IV", "stratum spinosum", "stratum granulosum")
+# pathway_order <- c("JAK-STAT", "WNT", "Estrogen", "MAPK", "VEGF", "EGFR", "PI3K", "Androgen", "TGFb", "TNFa", "NFkB", "Hypoxia", "Trail", "p53")
+
+#data frame assigning identities to each cell
+CellsClusters <- data.frame(
+    Cell = names(Idents(objectrds)),
+    CellType = as.character(Idents(objectrds)),
+    stringsAsFactors = FALSE
+  )
+
+#calculation progeny, added as inactive assay to rds
+objectrds <- progeny(objectrds, scale = F, organism = org, top = features, perm = 1, return_assay = TRUE)
+
+# objectrds@assays$progeny
+
+#We can now directly apply Seurat functions in our Progeny scores, like scaling the pathway activity scores
+objectrds <- Seurat::ScaleData(objectrds, assay = "progeny")
+
+#We transform Progeny scores into a data frame to better handling the results
+progeny_scores_df <- as.data.frame(t(GetAssayData(objectrds, assay = "progeny", slot = "scale.data"))) %>%
+  tibble::rownames_to_column("Cell") %>%
+  tidyr::pivot_longer(names_to = "Pathway", values_to = "Activity", c(-"Cell")) #transforms the table into a longer table format - assigning a separate row for every pathways + coordinating activity per cell
+
+#We match Progeny scores with the cell clusters.
+progeny_scores_df <- inner_join(progeny_scores_df, CellsClusters, by = c("Cell"))
+
+#We summarize the Progeny scores by cell population
+summarized_progeny_scores <- progeny_scores_df %>%
+  group_by(Pathway, CellType) %>%
+  summarise(avg = mean(Activity), std = sd(Activity))
+
+#We prepare the data for the plot
+summarized_progeny_scores_df_AD <- summarized_progeny_scores %>%
+  dplyr::select(-std) %>%
+  tidyr::spread(Pathway, avg) %>%
+  data.frame(row.names = "CellType", check.names = FALSE, stringsAsFactors = FALSE)
+# 
+# summarized_progeny_scores_df_AD <- summarized_progeny_scores_df_AD[diffOrder, ]
+# summarized_progeny_scores_df_AD <- summarized_progeny_scores_df_AD[ , pathway_order]
+
+paletteLength = 100
+myColor = colorRampPalette(c("darkgreen", "white", "darkorange"))(paletteLength)
+
+#to get the scale balanced and centered around 0
+progenyBreaks = c(
+ seq(min(summarized_progeny_scores_df_AD), 0, length.out = ceiling(paletteLength / 2) + 1),
+ seq(max(summarized_progeny_scores_df_AD) / paletteLength, max(summarized_progeny_scores_df_AD),  length.out = floor(paletteLength / 2)))
+# seq creates a sequence lowest to highest number with length.out determining length of sequence
+
+progeny_hmap <- pheatmap(t(summarized_progeny_scores_df_AD), 
+                        cluster_cols = F, #treeheight_col = 0, 
+                        cluster_rows = F, #treeheight_row = 0, 
+                        color = myColor, breaks = progenyBreaks, border_color = NA,
+                        main =  paste0("PROGENy pathway activity AD"), angle_col = c("45")) #fontsize = 14, fontsize_row = 10
+```
+
+
+
 ```{r DEanalysis basalIII}
 #separating all basal III subclusters based on disease condition
 Idents(roj_rds) <- roj_rds$disease
@@ -3548,6 +3787,42 @@ Repressed proliferation genes: MKI67, FOXM1, AURKB
 VlnPlot(roj_rds, group.by = "svm_annotation", features = c("ATF3", "DUSP1", "RND3", "GRHL3", "OVOL1", "PRDM1", "ZNF750", "MKI67"), split.by = "disease", stack = T, flip = T) 
 
 ```
+
+
+
+## Differences basal III subtypes - AD
+
+```{r DEanalysis AD KRT15 vs ASS1}
+table(roj_rds$svm_added_anno)
+
+markers <- FindMarkers(roj_rds[, roj_rds$disease == "AD"], group.by = "svm_added_anno", ident.1 = "basal III KRT15+", ident.2 = "basal III ASS1+")
+colnames(markers) <- paste("AD", colnames(markers), sep = "_")
+markers$gene <- rownames(markers)
+
+diffex_ad_basalIII <- markers[markers$AD_p_val_adj < 0.05, ]
+
+markers <- FindMarkers(roj_rds[, roj_rds$disease == "AD"], group.by = "svm_added_anno", ident.1 = "basal III KRT15+", ident.2 = "basal III ASS1+")
+
+```
+
+```{r GO over enrichment}
+counts_sum <- rowSums(roj_rds@assays[["RNA"]])
+background <- rownames(roj_rds@assays[["RNA"]][counts_sum > 1])
+
+DEAD_KRT15down <-  enrichGO(gene = diffex_ad_basalIII[diffex_ad_basalIII$AD_avg_log2FC < 0, "gene"], 
+                        universe = background, OrgDb = org.Hs.eg.db, keyType = 'SYMBOL', ont = "ALL",
+                        readable = T)
+DEAD_KRT15down_df <- as.data.frame(DEAD_KRT15down)
+View(DEAD_KRT15down_df)
+
+DEAD_ASS1down <-  enrichGO(gene = diffex_ad_basalIII[diffex_ad_basalIII$AD_avg_log2FC > 0, "gene"], 
+                        universe = background, OrgDb = org.Hs.eg.db, keyType = 'SYMBOL', ont = "ALL",
+                        readable = T)
+DEAD_ASS1down_df <- as.data.frame(DEAD_ASS1down)
+View(DEAD_ASS1down_df)
+```
+
+
 
 
 # TP63 target gene enrichment
