@@ -1,5 +1,0 @@
-[2023-06-07 17:04:11] [INFO]    [OmnipathR] Welcome to OmnipathR!
-[2023-06-07 17:04:11] [INFO]    [OmnipathR] Initialized cache: `C:\Users\spare\AppData\Local\Cache\OmnipathR`.
-[2023-06-07 17:04:31] [TRACE]   [OmnipathR] Loaded data from RDS `C:\Users\spare\AppData\Local\Cache\OmnipathR/3492392585ba05414edfae46801492076437d7e7-1.rds`.
-[2023-06-07 17:04:31] [INFO]    [OmnipathR] Loaded from cache: `https://omnipathdb.org/annotations?resources=PROGENy&license=academic`
-[2023-06-07 17:04:31] [SUCCESS] [OmnipathR] Loaded 700257 annotation records from cache.
