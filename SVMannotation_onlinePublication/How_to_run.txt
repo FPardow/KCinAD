@@ -1,0 +1,13 @@
+generate the environment from the provided SVM.yml file #e.g. conda env create --name SVM --file /path/to/directory/SVM.yml (this step just needs to be done when running the script for the first time)
+activate the SVM.yml conda environment #e.g. conda activate /path/to/directory/SVM
+navigate to the directory where the CrossVal.ipynb and SVM.ipynb scripts can be found  #e.g. cd /path/to/directory
+open the scripts in Jupyter notebook #e.g. jupyter notebook (and then open the scripts there)
+adjust the paths in the jupyter notebook and run the chunks of code
+ * means the code is busy running
+
+The script CrossVal.ipynb performs the 5-fold cross-validation and produces Supplemental Figure 1i (Results > CrossVal > Confusion_matrix_SVM.png). 
+The script SVM.ipynb trains the SVM annotation model and annotates the Rojahn et al. dataset. The most important output is the SVM_Pred_Labels.csv file in Results > RojanhBiop where the predicted KC annotations are stored. 
+
+
+
+
