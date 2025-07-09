@@ -1,2 +1,11 @@
-
-roj_rds.rds
+data/GSE147482_RAW/
+data/GSE153760_RAW/
+*.log
+results/old/
+results_scriptWard/
+scripts/
+SVMannotation_localVersion/
+SVMannotation_scriptWard/
+.Rhistory
+.Rprofile
+KCinAD_0405_everything.Rmd
