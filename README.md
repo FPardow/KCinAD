@@ -1,2 +1,2 @@
 # KCinAD
- Analysis of KC heterogeniety and function in healthy and inflammed skin 
+ Analysis of KC subtypes in healthy and AD skin 
