@@ -21,12 +21,15 @@ To regenerating the analysis and all figures of the manuscript follow the subseq
 
    6.2 ***STOPP!*** now switch from R to Jupiter Notebook. DO NOT continue the analysis further or change the rojahn_kcfiltered2 dataset
    
-   6.3 Generate the python environment from the provided SVM.yml file. This step only needs to be done when running the script for the first time. /path/to/directory/ needs to be replaced with the path to the directory where your SVM.yaml file is located.  
+   6.3 Generate the python environment from the provided SVM.yml file. This step only needs to be done when running the script for the first time. /path/to/directory/ needs to be replaced with the path to the directory where your SVM.yaml file is located.
+
+    6.4 Activate the SVM.yml conda environment.
 ```
 conda env create --name SVM --file /path/to/directory/SVM.yml
 ```
 
    6.4 Activate the SVM.yml conda environment.
+    6.4 Activate the SVM.yml conda environment.
 ```
 conda activate /path/to/directory/SVM
 ```
