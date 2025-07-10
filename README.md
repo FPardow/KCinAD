@@ -35,3 +35,9 @@ The script SVM.ipynb trains the SVM annotation model and annotates the Rojahn et
 8. Generating the main part of the analysis:
    7.1 load the SVM annotation labels of the keratinocyte subtypes in line 1253
    7.2 continue running the rest of the script to generate the remaining results  
+
+
+
+[![DOI](https://zenodo.org/badge/doi/10.5281/zenodo.18914.svg)](http://dx.doi.org/10.5281/zenodo.18914)
+
+http://img.shields.io/badge/math.CO-arXiv%3A1408.3644-B31B1B.svg
