@@ -6,10 +6,10 @@ To regenerating the analysis and all figures of the manuscript follow the subseq
 2. Install the R version and packages used for this study using the renv package manager: Install R version 4.4.1. You can use the renv package to "lazy-load" my version of the installed packages. Alternatively, you can manually install the packages yourself. For both, see the code chunk {r install packages, eval = F} from code line 180 - 224 of the R markdown script 
 3. Setting up the directories: please specify the directories on your computer where to get the data from and where to save your results to (line 37 - 41)
 4. Pre-processing the SVM training dataset GSE147482 (Wang et al. 2019 biopsy scRNA-seq):
-   4.1 please download the GSE147482_RAW.tar data file from (https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE147482) into the data.dir.
+   4.1 please download the GSE147482_RAW.tar data file from https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE147482 into the data.dir.
    4.2 run the code from line 264 - 912
 6. Pre-processing the SVM test dataset GSE153760 (Rojahn et al. 2020 biopsy scRNA-seq):
-   5.1 please download the GSE153760_RAW.tar data file from (https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE153760) into the data.dir.
+   5.1 please download the GSE153760_RAW.tar data file from https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE153760 into the data.dir.
    5.2 run the code from line 927 - 1170
 7. Handling the SVM annotation
    6.1 Gene match the Wang and Rojahn and al dataset and export them in the right format for SVM annotation (code lines 1180 - 1244)
