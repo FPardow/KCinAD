@@ -49,10 +49,9 @@ The script CrossVal.ipynb performs the 5-fold cross-validation and produces Supp
 The script SVM.ipynb trains the SVM annotation model and annotates the Rojahn et al. dataset. The most important output is the SVM_Pred_Labels.csv file in SVMannotation/Results/RojanhBiop where the predicted KC annotations are stored. 
 
 7. Continue in R markdown with the main part of the analysis:
+   7.1 load the SVM annotation labels of the keratinocyte subtypes in line 1253
 
-  7.1 load the SVM annotation labels of the keratinocyte subtypes in line 1253
-  
-  7.2 continue running the rest of the script to generate the remaining results  
+   7.2 continue running the rest of the script to generate the remaining results  
 
 
 
