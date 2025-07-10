@@ -12,7 +12,9 @@ To regenerating the analysis and all figures of the manuscript follow the subseq
    5.1 please download the GSE153760_RAW.tar data file from https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE153760 into the data.dir.
    5.2 run the code from line 927 - 1170
 7. Handling the SVM annotation
+
    6.1 Gene match the Wang and Rojahn and al dataset and export them in the right format for SVM annotation (code lines 1180 - 1244)
+
    6.2 __STOPP!__ now switch from R to Jupiter Notebook. DO NOT continue the analysis further or change the rojahn_kcfiltered2 dataset
    
    6.3 Generate the python environment from the provided SVM.yml file. This step only needs to be done when running the script for the first time. /path/to/directory/ needs to be replaced with the path to the directory where your SVM.yaml file is located.  
