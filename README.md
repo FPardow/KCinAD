@@ -25,8 +25,8 @@ To regenerating the analysis and all figures of the manuscript follow the subseq
 ```
 conda env create --name SVM --file /path/to/directory/SVM.yml
 ```
-   
-  6.4 Activate the SVM.yml conda environment.
+
+   6.4 Activate the SVM.yml conda environment.
 ```
 conda activate /path/to/directory/SVM
 ```
